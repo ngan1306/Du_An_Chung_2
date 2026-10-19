@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b3826">
+  <meta name="description" content="Kiss - kết nối và hẹn hò.">
+  <title>Kiss | Đăng nhập</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main class="auth-layout">
+    <section class="auth-story" aria-label="Giới thiệu Kiss">
+      <img class="auth-reference" src="/images/kiss-auth-reference.png" alt="Kiss: Biết đâu, cuộc gặp hôm nay lại là khởi đầu của một câu chuyện đáng nhớ. Minh họa đôi môi đỏ và hoa với dòng chữ Kisses for you.">
+    </section>
+
+    <section class="auth-panel" aria-labelledby="auth-title">
+      <header class="auth-heading">
+        <a class="mobile-brand" href="/" aria-label="Kiss trang chủ"><span class="brand-mark">k</span><span>kiss</span></a>
+        <p class="eyebrow" id="auth-kicker">RẤT VUI ĐƯỢC GẶP LẠI</p>
+        <h1 id="auth-title">Chào bạn.</h1>
+        <p class="auth-subtitle" id="auth-subtitle">Đăng nhập để tiếp tục hành trình gặp gỡ.</p>
+      </header>
+
+      <div class="auth-tabs" role="tablist" aria-label="Tài khoản">
+        <button class="auth-tab is-active" id="login-tab" type="button" role="tab" aria-selected="true">Đăng nhập</button>
+        <button class="auth-tab" id="register-tab" type="button" role="tab" aria-selected="false">Tạo tài khoản</button>
+      </div>
+
+      <form id="auth-form" class="form-stack">
+        <label class="field" id="name-field" hidden>
+          <span>Tên hiển thị</span>
+          <input name="name" type="text" autocomplete="name" minlength="2" maxlength="80" placeholder="Tên bạn muốn mọi người gọi" disabled>
+        </label>
+        <label class="field" id="gender-field" hidden>
+          <span>Giới tính</span>
+          <select name="gender" required disabled>
+            <option value="">Chọn giới tính</option>
+            <option value="Woman">Nữ</option>
+            <option value="Man">Nam</option>
+            <option value="NonBinary">Phi nhị nguyên</option>
+            <option value="PreferNotToSay">Không muốn chia sẻ</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Email</span>
+          <input name="email" type="email" autocomplete="email" maxlength="254" placeholder="ban@email.com" required>
+        </label>
+        <label class="field">
+          <span>Mật khẩu</span>
+          <input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" placeholder="Ít nhất 8 ký tự" required>
+        </label>
+        <label class="field" id="birth-field" hidden>
+          <span>Ngày sinh <small>Chỉ dành cho người từ 18 tuổi</small></span>
+          <input name="birthDate" type="date" autocomplete="bday" disabled>
+        </label>
+        <label class="terms-field" id="terms-field" hidden>
+          <input name="acceptTerms" type="checkbox" disabled>
+          <span>Tôi đồng ý với điều khoản sử dụng và xác nhận đã đủ 18 tuổi.</span>
+        </label>
+        <p class="form-message" id="auth-message" role="status" aria-live="polite" hidden></p>
+        <button class="submit-button" id="auth-submit" type="submit">Đăng nhập <span aria-hidden="true">↗</span></button>
+      </form>
+
+      <p class="auth-legal">Bằng việc tiếp tục, bạn xác nhận mình đã đủ 18 tuổi.</p>
+      <footer class="auth-footer"><span>Kết nối chân thành, bắt đầu từ một lời chào.</span><a href="/openapi/v1.json" target="_blank" rel="noreferrer">API docs ↗</a></footer>
+    </section>
+  </main>
+
+  <main id="dating-app" class="dating-app" hidden>
+    <header class="app-header">
+      <a class="app-brand" href="/" aria-label="Kiss"><span class="brand-mark">k</span><span>kiss</span></a>
+      <nav class="app-nav" aria-label="Điều hướng">
+        <button class="app-nav-item is-active" data-page="discover" type="button">Khám phá</button>
+        <button class="app-nav-item" data-page="journey" type="button">Hành trình</button>
+        <button class="app-nav-item" data-page="matches" type="button">Kết đôi <span id="match-count">0</span></button>
+        <button class="app-nav-item" data-page="profile" type="button">Hồ sơ của tôi</button>
+      </nav>
+      <div class="app-account"><span id="app-user-name">Thành viên</span><button id="logout-button" class="logout-button" type="button">Đăng xuất</button></div>
+    </header>
+
+    <section id="discover-page" class="app-page">
+      <header class="page-heading"><div><p class="eyebrow">MỘT CUỘC GẶP MỚI</p><h1>Khám phá</h1></div><p>Tìm người cùng nhịp với bạn.</p></header>
+      <form id="discover-filters" class="filter-bar">
+        <label class="field"><span>Tìm theo tên</span><input name="search" type="search" placeholder="Tên hồ sơ"></label>
+        <label class="field"><span>Giới tính</span><select name="gender"><option value="">Tất cả</option><option value="Woman">Nữ</option><option value="Man">Nam</option><option value="NonBinary">Phi nhị nguyên</option><option value="PreferNotToSay">Không chia sẻ</option></select></label>
+        <label class="field"><span>Tuổi từ</span><input name="minAge" type="number" min="18" max="120" placeholder="18"></label>
+        <label class="field"><span>Đến</span><input name="maxAge" type="number" min="18" max="120" placeholder="99"></label>
+        <label class="field"><span>Thành phố</span><input name="city" type="search" maxlength="100" placeholder="Mọi nơi"></label>
+        <label class="field"><span>Mục đích</span><select name="lookingFor"><option value="">Bất kỳ</option><option value="Friendship">Kết bạn</option><option value="Dating">Hẹn hò</option><option value="Relationship">Mối quan hệ nghiêm túc</option></select></label>
+        <label class="field"><span>Sở thích</span><select name="interestId" id="filter-interest"><option value="">Tất cả</option></select></label>
+        <button class="submit-button" type="submit">Lọc hồ sơ</button>
+      </form>
+      <p id="discover-message" class="form-message" role="status" aria-live="polite" hidden></p>
+      <div id="discover-results" class="profile-grid" aria-live="polite"></div>
+    </section>
+
+    <section id="profile-page" class="app-page" hidden>
+      <header class="page-heading"><div><p class="eyebrow">HỒ SƠ CỦA BẠN</p><h1>Giới thiệu về bạn</h1></div><p>Thông tin chân thật giúp bắt đầu kết nối tốt hơn.</p></header>
+      <div class="profile-workspace">
+        <form id="profile-form" class="profile-form">
+          <label class="field"><span>Họ tên</span><input name="name" required minlength="2" maxlength="80"></label>
+          <label class="field"><span>Ngày sinh</span><input name="birthDate" type="date" required></label>
+          <label class="field"><span>Giới tính</span><select name="gender" required><option value="Woman">Nữ</option><option value="Man">Nam</option><option value="NonBinary">Phi nhị nguyên</option><option value="PreferNotToSay">Không muốn chia sẻ</option></select></label>
+          <label class="field"><span>Thành phố</span><input name="city" maxlength="100" placeholder="Ví dụ: Hà Nội"></label>
+          <label class="field"><span>Công việc</span><input name="occupation" maxlength="120" placeholder="Bạn đang làm gì?"></label>
+          <label class="field"><span>Học vấn</span><input name="education" maxlength="120" placeholder="Bạn học ở đâu?"></label>
+          <label class="field"><span>Bạn đang tìm</span><select name="lookingFor" required><option value="Friendship">Kết bạn</option><option value="Dating">Hẹn hò</option><option value="Relationship">Mối quan hệ nghiêm túc</option></select></label>
+          <label class="field profile-bio"><span>Giới thiệu</span><textarea name="bio" rows="4" maxlength="500" placeholder="Chia sẻ một chút về bạn"></textarea></label>
+          <div class="profile-interests"><p class="field-title">Sở thích</p><div id="interest-options" class="interest-options"></div></div>
+          <p id="profile-message" class="form-message" role="status" aria-live="polite" hidden></p>
+          <button class="submit-button" type="submit">Lưu hồ sơ <span aria-hidden="true">↗</span></button>
+        </form>
+        <aside class="photo-manager">
+          <h2>Ảnh hồ sơ</h2>
+          <p>Tối đa 6 ảnh PNG, JPEG hoặc WebP, mỗi ảnh không quá 5 MB.</p>
+          <form id="photo-form" class="photo-upload"><label class="field"><span>Thêm ảnh</span><input name="file" type="file" accept="image/png,image/jpeg,image/webp" required></label><button class="submit-button" type="submit">Tải ảnh lên</button></form>
+          <div id="photo-list" class="photo-list"></div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="matches-page" class="app-page" hidden>
+      <header class="page-heading"><div><p class="eyebrow">HAI CHIỀU CÙNG THÍCH</p><h1>Kết đôi</h1></div><p>Những kết nối đã bắt đầu.</p></header>
+      <div id="matches-results" class="profile-grid"></div>
+    </section>
+
+    <section id="journey-page" class="app-page journey-page" hidden>
+      <header class="page-heading"><div><p class="eyebrow">CHIA SẺ NHỮNG ĐIỀU ĐANG DIỄN RA</p><h1>Hành trình</h1></div><p>Một khoảnh khắc nhỏ cũng có thể mở đầu một câu chuyện.</p></header>
+      <form id="journey-form" class="journey-composer">
+        <label class="field journey-content-field"><span>Hôm nay bạn muốn chia sẻ điều gì?</span><textarea name="content" rows="4" maxlength="2000" placeholder="Viết một trạng thái, kể về ngày hôm nay..."></textarea></label>
+        <div class="journey-composer-footer">
+          <label class="journey-media-picker"><span aria-hidden="true">＋</span><span>Thêm ảnh hoặc video</span><input id="journey-media" name="media" type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm"></label>
+          <span class="journey-file-name" id="journey-file-name">PNG, JPEG, WebP hoặc MP4, WebM</span>
+          <button class="submit-button" type="submit">Đăng lên hành trình <span aria-hidden="true">↗</span></button>
+        </div>
+        <div class="journey-media-preview" id="journey-media-preview" hidden></div>
+        <p class="form-message" id="journey-message" role="status" aria-live="polite" hidden></p>
+      </form>
+      <div class="journey-feed-heading"><h2>Dòng thời gian</h2><button id="journey-refresh" class="quiet-button" type="button">Làm mới</button></div>
+      <div id="journey-feed" class="journey-feed" aria-live="polite"></div>
+    </section>
+    <footer class="app-footer"><span>Kiss <span>♥</span> kết nối chân thành</span><a href="/openapi/v1.json" target="_blank" rel="noreferrer">API docs ↗</a></footer>
+  </main>
+</body>
+</html>

@@ -1,0 +1,117 @@
+@baseUrl = http://localhost:5000
+@firstToken = paste-first-access-token-here
+@secondToken = paste-second-access-token-here
+@profileId = paste-profile-id-here
+
+### Register the first user
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Alex",
+  "email": "alex@example.com",
+  "password": "ExamplePassword123!",
+  "birthDate": "1998-04-12",
+  "gender": "Woman",
+  "acceptTerms": true,
+  "bio": "Coffee, books, and weekend hikes."
+}
+
+### Log in
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "alex@example.com",
+  "password": "ExamplePassword123!"
+}
+
+### Discover profiles
+GET {{baseUrl}}/api/profiles/discover?limit=20&gender=Man&minAge=25&maxAge=40&city=Hanoi&lookingFor=Relationship
+Authorization: Bearer {{firstToken}}
+
+### Get my profile
+GET {{baseUrl}}/api/profiles/me
+Authorization: Bearer {{firstToken}}
+
+### Update my profile
+PUT {{baseUrl}}/api/profiles/me
+Authorization: Bearer {{firstToken}}
+Content-Type: application/json
+
+{
+  "name": "Alex",
+  "birthDate": "1998-04-12",
+  "gender": "Woman",
+  "city": "Hanoi",
+  "occupation": "Designer",
+  "education": "University",
+  "lookingFor": "Relationship",
+  "bio": "Updated profile introduction."
+}
+
+### List available interests
+GET {{baseUrl}}/api/interests
+Authorization: Bearer {{firstToken}}
+
+### Replace my interests
+PUT {{baseUrl}}/api/profiles/me/interests
+Authorization: Bearer {{firstToken}}
+Content-Type: application/json
+
+{
+  "interestIds": []
+}
+
+### Upload a profile photo
+POST {{baseUrl}}/api/profiles/me/photos
+Authorization: Bearer {{firstToken}}
+Content-Type: multipart/form-data; boundary=KissBoundary
+
+--KissBoundary
+Content-Disposition: form-data; name="file"; filename="profile.png"
+Content-Type: image/png
+
+< ./Image/Gemini_Generated_Image_bvcj5xbvcj5xbvcj.png
+--KissBoundary--
+
+### Set an uploaded photo as avatar
+PUT {{baseUrl}}/api/profiles/me/photos/{{photoId}}/avatar
+Authorization: Bearer {{firstToken}}
+
+### Delete an uploaded photo
+DELETE {{baseUrl}}/api/profiles/me/photos/{{photoId}}
+Authorization: Bearer {{firstToken}}
+
+### Like a profile (a mutual like creates a match)
+POST {{baseUrl}}/api/swipes
+Authorization: Bearer {{firstToken}}
+Content-Type: application/json
+
+{
+  "targetUserId": "{{profileId}}",
+  "isLike": true
+}
+
+### Pass on a profile
+POST {{baseUrl}}/api/swipes
+Authorization: Bearer {{firstToken}}
+Content-Type: application/json
+
+{
+  "targetUserId": "{{profileId}}",
+  "isLike": false
+}
+
+### List matches
+GET {{baseUrl}}/api/matches
+Authorization: Bearer {{firstToken}}
+
+### Invalid login returns 401
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "alex@example.com",
+  "password": "wrong-password"
+}
