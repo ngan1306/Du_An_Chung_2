@@ -4,13 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b3826">
+  <meta name="referrer" content="no-referrer">
   <meta name="description" content="Kiss - kết nối và hẹn hò.">
   <title>Kiss | Đăng nhập</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/app.css?v=profile-sync-20261026">
-  <script src="/app.js?v=profile-sync-20261026" defer></script>
+  <link rel="stylesheet" href="/app.css?v=password-reset-20261026">
+  <script src="/app.js?v=password-reset-20261026" defer></script>
 </head>
 <body>
   <main class="auth-layout">
@@ -62,8 +63,23 @@
           <input name="acceptTerms" type="checkbox" disabled>
           <span>Tôi đồng ý với điều khoản sử dụng và xác nhận đã đủ 18 tuổi.</span>
         </label>
+        <p class="privacy-note" id="privacy-note" hidden>Hồ sơ, ảnh và hoạt động (thích, bài viết, bình luận) được lưu trên máy chủ; chủ ứng dụng có thể xem và xuất các dữ liệu này. Tin nhắn và tệp đính kèm cũng được lưu để cung cấp chức năng chat; trang quản trị và bản xuất chỉ có số lượng tin nhắn, không có nội dung hoặc tệp đính kèm.</p>
         <p class="form-message" id="auth-message" role="status" aria-live="polite" hidden></p>
         <button class="submit-button" id="auth-submit" type="submit">Đăng nhập <span aria-hidden="true">↗</span></button>
+      </form>
+      <button class="auth-text-button" id="forgot-password-link" type="button">Quên mật khẩu?</button>
+      <form id="forgot-password-form" class="form-stack" hidden>
+        <label class="field"><span>Email tài khoản</span><input name="email" type="email" autocomplete="email" maxlength="254" required></label>
+        <p class="form-message" id="forgot-password-message" role="status" aria-live="polite" hidden></p>
+        <button class="submit-button" type="submit">Gửi liên kết đặt lại</button>
+        <button class="auth-text-button" id="forgot-password-back" type="button">Quay lại đăng nhập</button>
+      </form>
+      <form id="reset-password-form" class="form-stack" hidden>
+        <label class="field"><span>Mật khẩu mới</span><input name="newPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label>
+        <label class="field"><span>Nhập lại mật khẩu mới</span><input name="confirmPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label>
+        <p class="form-message" id="reset-password-message" role="status" aria-live="polite" hidden></p>
+        <button class="submit-button" type="submit">Lưu mật khẩu mới</button>
+        <button class="auth-text-button" id="reset-password-back" type="button">Quay lại đăng nhập</button>
       </form>
 
       <p class="auth-legal">Bằng việc tiếp tục, bạn xác nhận mình đã đủ 18 tuổi.</p>
@@ -80,6 +96,7 @@
         <button class="app-nav-item" data-page="matches" type="button">Kết đôi <span id="match-count">0</span></button>
         <button class="app-nav-item" data-page="chat" type="button">Tin nhắn</button>
         <button class="app-nav-item" data-page="profile" type="button">Hồ sơ của tôi</button>
+        <button class="app-nav-item" data-page="admin" id="admin-nav" type="button" hidden>Quản trị</button>
       </nav>
       <div class="app-account"><span id="app-user-name">Thành viên</span><button id="logout-button" class="logout-button" type="button">Đăng xuất</button></div>
     </header>
@@ -179,6 +196,16 @@
       </form>
       <div class="journey-feed-heading"><h2>Dòng thời gian</h2><button id="journey-refresh" class="quiet-button" type="button">Làm mới</button></div>
       <div id="journey-feed" class="journey-feed" aria-live="polite"></div>
+    </section>
+    <section id="admin-page" class="app-page" hidden>
+      <header class="page-heading"><div><p class="eyebrow">CHỦ ỨNG DỤNG</p><h1>Dữ liệu Kiss</h1></div><p>Tổng quan và xuất dữ liệu tài khoản.</p></header>
+      <p class="admin-data-note">Bản xuất gồm hồ sơ, sở thích và hoạt động trên hệ thống; không gồm hash mật khẩu hoặc nội dung tin nhắn riêng.</p>
+      <div id="admin-stat-grid" class="admin-stat-grid" aria-live="polite"></div>
+      <div class="admin-users-panel">
+        <div class="journey-feed-heading"><h2>Tài khoản mới</h2><div class="admin-actions"><button id="admin-refresh" class="quiet-button" type="button">Làm mới</button><button id="admin-export" class="submit-button" type="button">Tải JSON</button></div></div>
+        <div id="admin-users" class="admin-users" aria-live="polite"></div>
+        <p id="admin-message" class="form-message" role="status" aria-live="polite" hidden></p>
+      </div>
     </section>
     <footer class="app-footer"><span>Kiss <span>♥</span> kết nối chân thành</span><a href="/openapi/v1.json" target="_blank" rel="noreferrer">API docs ↗</a></footer>
   </main>

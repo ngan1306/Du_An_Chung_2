@@ -20,6 +20,7 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
     public DbSet<JourneyPostLike> JourneyPostLikes => Set<JourneyPostLike>();
     public DbSet<JourneyComment> JourneyComments => Set<JourneyComment>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -206,5 +207,25 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
             .WithMany()
             .HasForeignKey(message => message.RecipientId)
             .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<PasswordResetToken>()
+            .Property(reset => reset.TokenHash)
+            .HasMaxLength(64);
+        modelBuilder.Entity<PasswordResetToken>()
+            .Property(reset => reset.CreatedAt)
+            .HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<PasswordResetToken>()
+            .Property(reset => reset.ExpiresAt)
+            .HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<PasswordResetToken>()
+            .HasIndex(reset => reset.TokenHash)
+            .IsUnique();
+        modelBuilder.Entity<PasswordResetToken>()
+            .HasIndex(reset => reset.UserId);
+        modelBuilder.Entity<PasswordResetToken>()
+            .HasOne(reset => reset.User)
+            .WithMany()
+            .HasForeignKey(reset => reset.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

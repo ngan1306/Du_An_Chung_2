@@ -44,6 +44,29 @@ public sealed record LoginRequest
     public required string Password { get; init; }
 }
 
+/// <summary>Payload for requesting a password reset message.</summary>
+public sealed record ForgotPasswordRequest
+{
+    /// <summary>The account email address.</summary>
+    [Required, EmailAddress, StringLength(254)]
+    public required string Email { get; init; }
+}
+
+/// <summary>A generic response that does not reveal whether an email is registered.</summary>
+public sealed record ForgotPasswordResponse(string Message);
+
+/// <summary>Payload for setting a new password with a one-time reset token.</summary>
+public sealed record ResetPasswordRequest
+{
+    /// <summary>The one-time token from the reset email.</summary>
+    [Required, StringLength(128)]
+    public required string Token { get; init; }
+
+    /// <summary>The replacement password.</summary>
+    [Required, MinLength(8), StringLength(128)]
+    public required string NewPassword { get; init; }
+}
+
 /// <summary>Payload for updating the signed-in user's profile.</summary>
 public sealed record UpdateProfileRequest
 {

@@ -1,9 +1,12 @@
 const authView = document.querySelector(".auth-layout");
 const authForm = document.querySelector("#auth-form");
+const authTabs = document.querySelector(".auth-tabs");
+const forgotPasswordForm = document.querySelector("#forgot-password-form");
+const resetPasswordForm = document.querySelector("#reset-password-form");
 const appView = document.querySelector("#dating-app");
 const authMessage = document.querySelector("#auth-message");
 const authButton = document.querySelector("#auth-submit");
-const appState = { token: localStorage.getItem("kiss.accessToken"), profile: null, interests: [] };
+const appState = { token: localStorage.getItem("kiss.accessToken"), profile: null, interests: [], resetToken: null };
 const chatState = {
   contacts: [],
   activeUserId: null,
@@ -42,6 +45,11 @@ function setAuthMode(nextMode) {
   authMode = nextMode;
   const registering = authMode === "register";
   const fields = ["name-field", "gender-field", "birth-field", "terms-field"];
+  authTabs.hidden = false;
+  authForm.hidden = false;
+  forgotPasswordForm.hidden = true;
+  resetPasswordForm.hidden = true;
+  document.querySelector("#forgot-password-link").hidden = registering;
   document.querySelector("#login-tab").classList.toggle("is-active", !registering);
   document.querySelector("#register-tab").classList.toggle("is-active", registering);
   document.querySelector("#login-tab").setAttribute("aria-selected", String(!registering));
@@ -53,6 +61,7 @@ function setAuthMode(nextMode) {
     input.disabled = !registering;
     input.required = registering;
   }
+  document.querySelector("#privacy-note").hidden = !registering;
   authForm.elements.password.autocomplete = registering ? "new-password" : "current-password";
   document.querySelector("#auth-title").textContent = registering ? "Tạo tài khoản." : "Chào bạn.";
   document.querySelector("#auth-kicker").textContent = registering ? "BẮT ĐẦU MỘT CÂU CHUYỆN MỚI" : "RẤT VUI ĐƯỢC GẶP LẠI";
@@ -74,6 +83,85 @@ async function request(path, options = {}) {
   const result = contentType.includes("json") ? await response.json() : await response.text();
   if (!response.ok) throw new Error(result?.detail || result?.title || "Không thể hoàn tất yêu cầu.");
   return result;
+}
+
+function showForgotPassword() {
+  authTabs.hidden = true;
+  authForm.hidden = true;
+  document.querySelector("#forgot-password-link").hidden = true;
+  forgotPasswordForm.hidden = false;
+  resetPasswordForm.hidden = true;
+  document.querySelector("#auth-title").textContent = "Quên mật khẩu?";
+  document.querySelector("#auth-kicker").textContent = "KHÔI PHỤC TÀI KHOẢN";
+  document.querySelector("#auth-subtitle").textContent = "Nhập email đã đăng ký để nhận liên kết đặt lại mật khẩu.";
+  document.querySelector("#forgot-password-message").hidden = true;
+}
+
+function showResetPassword(token) {
+  appState.resetToken = token;
+  authTabs.hidden = true;
+  authForm.hidden = true;
+  forgotPasswordForm.hidden = true;
+  resetPasswordForm.hidden = false;
+  document.querySelector("#forgot-password-link").hidden = true;
+  document.querySelector("#auth-title").textContent = "Đặt mật khẩu mới.";
+  document.querySelector("#auth-kicker").textContent = "KHÔI PHỤC TÀI KHOẢN";
+  document.querySelector("#auth-subtitle").textContent = "Chọn mật khẩu mới có ít nhất 8 ký tự.";
+  document.querySelector("#reset-password-message").hidden = true;
+}
+
+async function submitForgotPassword(event) {
+  event.preventDefault();
+  if (!forgotPasswordForm.reportValidity()) return;
+  const button = forgotPasswordForm.querySelector("button[type=submit]");
+  const message = document.querySelector("#forgot-password-message");
+  button.disabled = true;
+  message.hidden = true;
+  try {
+    const email = new FormData(forgotPasswordForm).get("email").trim();
+    const result = await request("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email })
+    });
+    notify(message, result.message, true);
+  } catch (error) {
+    notify(message, error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function submitResetPassword(event) {
+  event.preventDefault();
+  if (!resetPasswordForm.reportValidity()) return;
+  const values = new FormData(resetPasswordForm);
+  const newPassword = values.get("newPassword");
+  const message = document.querySelector("#reset-password-message");
+  if (newPassword !== values.get("confirmPassword")) {
+    notify(message, "Hai mật khẩu chưa khớp.");
+    return;
+  }
+
+  const button = resetPasswordForm.querySelector("button[type=submit]");
+  button.disabled = true;
+  message.hidden = true;
+  try {
+    await request("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token: appState.resetToken, newPassword })
+    });
+    appState.resetToken = null;
+    appState.token = null;
+    localStorage.removeItem("kiss.accessToken");
+    localStorage.removeItem("kiss.profile");
+    resetPasswordForm.reset();
+    setAuthMode("login");
+    notify(authMessage, "Mật khẩu đã được đổi. Hãy đăng nhập bằng mật khẩu mới.", true);
+  } catch (error) {
+    notify(message, error.message);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function submitAuth(event) {
@@ -117,12 +205,12 @@ async function enterWorkspace() {
   document.querySelector("#app-user-name").textContent = appState.profile.name;
   await loadInterests();
   fillProfile();
-  await Promise.all([loadDiscover(), loadMatches(), loadJourney()]);
+  await Promise.all([loadDiscover(), loadMatches(), loadJourney(), loadAdminOverview()]);
   showPage("discover");
 }
 
 function showPage(page) {
-  for (const id of ["discover", "journey", "profile", "matches", "chat"]) {
+  for (const id of ["discover", "journey", "profile", "matches", "chat", "admin"]) {
     document.getElementById(`${id}-page`).hidden = id !== page;
   }
   document.querySelectorAll("[data-page]").forEach((button) => {
@@ -134,6 +222,49 @@ function showPage(page) {
   if (page === "matches") loadMatches();
   if (page === "chat") loadChatContacts();
   else stopChatPolling();
+  if (page === "admin") loadAdminOverview();
+}
+
+async function loadAdminOverview() {
+  const nav = document.querySelector("#admin-nav");
+  try {
+    const overview = await request("/admin/overview");
+    nav.hidden = false;
+    document.querySelector("#admin-stat-grid").innerHTML = [
+      ["Tài khoản", overview.userCount], ["Lượt thích/bỏ qua", overview.swipeCount],
+      ["Lượt kết đôi", overview.matchCount], ["Bài viết", overview.journeyPostCount],
+      ["Bình luận", overview.journeyCommentCount], ["Tin nhắn (chỉ số lượng)", overview.chatMessageCount]
+    ].map(([label, value]) => `<article class="admin-stat"><span>${escapeHtml(label)}</span><strong>${value}</strong></article>`).join("");
+    document.querySelector("#admin-users").innerHTML = overview.recentUsers.length
+      ? `<div class="admin-user-row admin-user-heading"><span>Tên</span><span>Email</span><span>Ngày tạo</span></div>${overview.recentUsers.map((user) => `<div class="admin-user-row"><strong>${escapeHtml(user.name)}</strong><span>${escapeHtml(user.email)}</span><time>${new Date(user.createdAt).toLocaleDateString("vi-VN")}</time></div>`).join("")}`
+      : '<p class="empty-message">Chưa có tài khoản.</p>';
+    document.querySelector("#admin-message").hidden = true;
+  } catch {
+    nav.hidden = true;
+  }
+}
+
+async function exportAdminData() {
+  const button = document.querySelector("#admin-export");
+  const message = document.querySelector("#admin-message");
+  button.disabled = true;
+  try {
+    const data = await request("/admin/export");
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `kiss-data-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    notify(message, "Đã tải bản xuất JSON.", true);
+  } catch (error) {
+    notify(message, error.message);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function notify(element, text, success = false) {
@@ -775,6 +906,22 @@ async function startApp() {
   document.querySelector("#journey-feed").addEventListener("click", deleteJourneyPost);
   document.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => showPage(button.dataset.page)));
   document.querySelector("#logout-button").addEventListener("click", logout);
+  document.querySelector("#forgot-password-link").addEventListener("click", showForgotPassword);
+  document.querySelector("#forgot-password-back").addEventListener("click", () => setAuthMode("login"));
+  document.querySelector("#reset-password-back").addEventListener("click", () => setAuthMode("login"));
+  forgotPasswordForm.addEventListener("submit", submitForgotPassword);
+  resetPasswordForm.addEventListener("submit", submitResetPassword);
+  document.querySelector("#admin-refresh").addEventListener("click", loadAdminOverview);
+  document.querySelector("#admin-export").addEventListener("click", exportAdminData);
+
+  const resetUrl = new URL(window.location.href);
+  const resetToken = resetUrl.searchParams.get("resetToken");
+  if (resetToken) {
+    resetUrl.searchParams.delete("resetToken");
+    window.history.replaceState({}, "", `${resetUrl.pathname}${resetUrl.search}${resetUrl.hash}`);
+    showResetPassword(resetToken);
+    return;
+  }
 
   if (!appState.token) return;
   try {

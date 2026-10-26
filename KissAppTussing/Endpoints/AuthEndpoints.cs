@@ -1,6 +1,7 @@
 using KissAppTussing.Contracts;
 using KissAppTussing.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 
 namespace KissAppTussing.Endpoints;
@@ -24,6 +25,25 @@ internal static class AuthEndpoints
             .WithDescription("Authenticates an account using its email address and password.")
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+        endpoints.MapPost("/api/auth/forgot-password", ForgotPasswordAsync)
+            .AllowAnonymous()
+            .RequireRateLimiting("password-reset")
+            .WithName("ForgotPassword")
+            .WithSummary("Send a one-time password reset link when the account email exists")
+            .Produces<ForgotPasswordResponse>(StatusCodes.Status202Accepted)
+            .ProducesValidationProblem()
+            .Produces(StatusCodes.Status429TooManyRequests);
+
+        endpoints.MapPost("/api/auth/reset-password", ResetPasswordAsync)
+            .AllowAnonymous()
+            .RequireRateLimiting("password-reset")
+            .WithName("ResetPassword")
+            .WithSummary("Change a password using a valid, unexpired one-time reset token")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status429TooManyRequests);
 
         return endpoints;
     }
@@ -67,5 +87,36 @@ internal static class AuthEndpoints
     {
         var response = await authService.LoginAsync(request, cancellationToken);
         return response is null ? TypedResults.Unauthorized() : TypedResults.Ok(response);
+    }
+
+    private static async Task<Accepted<ForgotPasswordResponse>> ForgotPasswordAsync(
+        ForgotPasswordRequest request,
+        IPasswordResetService passwordResetService,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        httpContext.Response.Headers.CacheControl = "no-store";
+        await passwordResetService.RequestResetAsync(request.Email, cancellationToken);
+        return TypedResults.Accepted((string?)null, new ForgotPasswordResponse(
+            "Nếu email khớp với tài khoản, bạn sẽ nhận được liên kết đặt lại mật khẩu."));
+    }
+
+    private static async Task<Results<NoContent, BadRequest<ProblemDetails>>> ResetPasswordAsync(
+        ResetPasswordRequest request,
+        IPasswordResetService passwordResetService,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        httpContext.Response.Headers.CacheControl = "no-store";
+        var reset = await passwordResetService.ResetPasswordAsync(
+            request.Token, request.NewPassword, cancellationToken);
+        return reset
+            ? TypedResults.NoContent()
+            : TypedResults.BadRequest(new ProblemDetails
+            {
+                Title = "Invalid or expired reset link",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Hãy yêu cầu liên kết mới."
+            });
     }
 }

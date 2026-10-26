@@ -51,6 +51,9 @@ a { color: inherit; text-decoration: none; }
 .form-message { margin: 0; color: var(--red); font-size: 12px; line-height: 1.5; }
 .form-message.is-success { color: var(--green-soft); }
 .auth-legal { margin: 16px 0 0; color: #938d85; font-size: 10px; line-height: 1.5; text-align: center; }
+.auth-text-button { justify-self: center; padding: 4px 8px; border: 0; color: var(--green); background: transparent; font-size: 11px; font-weight: 700; cursor: pointer; }
+.auth-text-button:hover { text-decoration: underline; }
+.privacy-note { margin: 0; padding: 12px; border: 1px solid #e8e4dc; border-radius: 4px; color: #625b54; background: #faf8f4; font-size: 10px; line-height: 1.6; }
 .auth-footer { display: flex; justify-content: space-between; gap: 15px; margin-top: auto; padding-top: 40px; color: #958e85; font-size: 10px; }
 .auth-footer a { flex: none; color: var(--green); font-weight: 700; }
 
@@ -75,6 +78,19 @@ a { color: inherit; text-decoration: none; }
 .filter-bar .field { min-width: 0; }
 .filter-bar .field input, .filter-bar .field select { min-height: 40px; padding: 9px; font-size: 11px; }
 .filter-bar .submit-button { min-height: 40px; padding: 0 14px; white-space: nowrap; }
+.admin-data-note { margin: 0 0 18px; padding: 14px 16px; border: 1px solid #e8e4dc; border-radius: 6px; color: #625b54; background: #fff; font-size: 12px; line-height: 1.6; }
+.admin-stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+.admin-stat, .admin-users-panel { padding: 18px; border: 1px solid #e8e4dc; border-radius: 6px; background: #fff; }
+.admin-stat { display: grid; gap: 9px; }
+.admin-stat span { color: var(--muted); font-size: 11px; }
+.admin-stat strong { color: var(--green); font-family: "DM Serif Display", Georgia, serif; font-size: 30px; font-weight: 400; }
+.admin-users-panel .journey-feed-heading { margin-bottom: 12px; }
+.admin-actions { display: flex; gap: 8px; }
+.admin-actions .submit-button { min-height: 34px; margin: 0; padding: 0 13px; border-radius: 999px; font-size: 10px; }
+.admin-users { overflow-x: auto; }
+.admin-user-row { min-width: 560px; display: grid; grid-template-columns: 1fr 1.4fr .7fr; gap: 14px; padding: 11px 8px; border-bottom: 1px solid #eeeae3; color: #5f5852; font-size: 11px; }
+.admin-user-row strong { color: var(--ink); }
+.admin-user-heading { color: var(--muted); font-size: 10px; font-weight: 700; }
 .profile-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .journey-page { display: grid; gap: 18px; }
 .journey-composer { display: grid; gap: 14px; padding: 20px; border: 1px solid #e8e4dc; border-radius: 8px; background: #fff; }
@@ -240,6 +256,11 @@ a { color: inherit; text-decoration: none; }
   .filter-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 13px; }
   .filter-bar .field:first-child, .filter-bar .submit-button { grid-column: 1 / -1; }
   .profile-grid { grid-template-columns: 1fr; gap: 12px; }
+  .admin-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .admin-stat, .admin-users-panel { padding: 13px; }
+  .admin-stat strong { font-size: 25px; }
+  .admin-users-panel .journey-feed-heading { align-items: start; }
+  .admin-actions { flex-wrap: wrap; justify-content: flex-end; }
   .chat-layout { min-height: 0; grid-template-columns: 1fr; }
   .chat-contact-panel { max-height: 192px; border-right: 0; border-bottom: 1px solid #e8e4dc; }
   .chat-contact-heading { padding: 13px 14px 10px; }
