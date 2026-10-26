@@ -42,6 +42,13 @@ internal interface IJourneyService
     Task<JourneyCommentResponse> AddCommentAsync(Guid userId, Guid postId, string content, CancellationToken cancellationToken);
 }
 
+internal interface IChatService
+{
+    Task<ChatMessagesResult> GetMessagesAsync(Guid userId, Guid otherUserId, CancellationToken cancellationToken);
+    Task<ChatMessageResult> SendMessageAsync(Guid userId, Guid otherUserId, string? content, IFormFile? media, CancellationToken cancellationToken);
+    Task<ChatMediaResult> GetMediaAsync(Guid userId, Guid messageId, CancellationToken cancellationToken);
+}
+
 internal enum RegistrationStatus
 {
     Created,
@@ -86,3 +93,18 @@ internal enum JourneyPostOperationStatus
 }
 
 internal sealed record JourneyPostOperationResult(JourneyPostOperationStatus Status, JourneyPostResponse? Post = null);
+
+internal enum ChatOperationStatus
+{
+    Success,
+    NotMatched,
+    EmptyMessage,
+    ContentTooLong,
+    UnsupportedMedia,
+    MediaTooLarge,
+    MediaNotFound
+}
+
+internal sealed record ChatMessagesResult(ChatOperationStatus Status, IReadOnlyList<ChatMessageResponse> Messages);
+internal sealed record ChatMessageResult(ChatOperationStatus Status, ChatMessageResponse? Message = null);
+internal sealed record ChatMediaResult(ChatOperationStatus Status, Stream? Stream = null, string? ContentType = null);

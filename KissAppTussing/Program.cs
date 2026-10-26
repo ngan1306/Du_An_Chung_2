@@ -28,11 +28,12 @@ builder.Services.AddOpenApi();
 builder.Services.AddValidation();
 builder.Services.AddProblemDetails();
 builder.Services.AddDbContext<DatingDbContext>(options =>
-	options.UseSqlite(builder.Configuration.GetConnectionString("DatingApp")));
+	options.UseSqlServer(builder.Configuration.GetConnectionString("DatingApp")));
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IDatingService, DatingService>();
 builder.Services.AddScoped<IJourneyService, JourneyService>();
+builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services
 	.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 	.AddJwtBearer(options =>
@@ -72,6 +73,7 @@ app.MapProfilePhotoEndpoints();
 app.MapSwipeEndpoints();
 app.MapMatchEndpoints();
 app.MapJourneyEndpoints();
+app.MapChatEndpoints();
 
 await using (var scope = app.Services.CreateAsyncScope())
 {

@@ -18,6 +18,7 @@ internal sealed class JourneyService(DatingDbContext database, IWebHostEnvironme
         var posts = await database.JourneyPosts
             .AsNoTracking()
             .Include(post => post.User)
+                .ThenInclude(user => user.Photos)
             .Include(post => post.Likes)
             .Include(post => post.Comments)
             .OrderByDescending(post => post.CreatedAt)
@@ -40,7 +41,9 @@ internal sealed class JourneyService(DatingDbContext database, IWebHostEnvironme
             return new JourneyPostOperationResult(JourneyPostOperationStatus.EmptyPost);
         }
 
-        var user = await database.Users.SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
+        var user = await database.Users
+            .Include(candidate => candidate.Photos)
+            .SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
         if (user is null)
         {
             return new JourneyPostOperationResult(JourneyPostOperationStatus.NotFound);
@@ -227,6 +230,11 @@ internal sealed class JourneyService(DatingDbContext database, IWebHostEnvironme
         post.Id,
         post.UserId,
         post.User.Name,
+        post.User.Photos
+            .OrderByDescending(photo => photo.IsAvatar)
+            .ThenBy(photo => photo.SortOrder)
+            .Select(photo => photo.Url)
+            .FirstOrDefault(),
         post.Content,
         post.MediaUrl,
         post.MediaType,

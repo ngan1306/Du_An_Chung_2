@@ -4,6 +4,16 @@ const appView = document.querySelector("#dating-app");
 const authMessage = document.querySelector("#auth-message");
 const authButton = document.querySelector("#auth-submit");
 const appState = { token: localStorage.getItem("kiss.accessToken"), profile: null, interests: [] };
+const chatState = {
+  contacts: [],
+  activeUserId: null,
+  pendingUserId: null,
+  pollTimer: null,
+  isLoading: false,
+  messages: [],
+  lastMessageKey: null,
+  mediaUrls: new Map()
+};
 let authMode = "login";
 
 const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, (character) => ({
@@ -11,7 +21,11 @@ const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, (character)
 }[character]));
 
 function photoUrl(value) {
-  return typeof value === "string" && value.startsWith("/uploads/") ? value : "";
+  return typeof value === "string" && (value.startsWith("/uploads/") || value.startsWith("/demo-profiles/")) ? value : "";
+}
+
+function cleanProfileName(value = "") {
+  return String(value).replace(/^\[M\u1eabu\]\s*/u, "");
 }
 
 function ageFrom(value) {
@@ -108,7 +122,7 @@ async function enterWorkspace() {
 }
 
 function showPage(page) {
-  for (const id of ["discover", "journey", "profile", "matches"]) {
+  for (const id of ["discover", "journey", "profile", "matches", "chat"]) {
     document.getElementById(`${id}-page`).hidden = id !== page;
   }
   document.querySelectorAll("[data-page]").forEach((button) => {
@@ -118,6 +132,8 @@ function showPage(page) {
   if (page === "profile") loadProfile();
   if (page === "journey") loadJourney();
   if (page === "matches") loadMatches();
+  if (page === "chat") loadChatContacts();
+  else stopChatPolling();
 }
 
 function notify(element, text, success = false) {
@@ -156,21 +172,22 @@ async function loadDiscover() {
   }
 }
 
-function renderProfiles(container, profiles, allowSwipe) {
+function renderProfiles(container, profiles, allowSwipe, allowChat = false) {
   if (!profiles.length) {
     container.innerHTML = '<p class="empty-message">Chưa tìm thấy hồ sơ phù hợp. Hãy thử điều chỉnh bộ lọc hoặc quay lại sau.</p>';
     return;
   }
   container.innerHTML = profiles.map((profile) => {
+    const name = cleanProfileName(profile.name);
     const avatar = profile.photos?.find((photo) => photo.isAvatar) || profile.photos?.[0];
     const image = photoUrl(avatar?.url);
     return `<article class="person-card" data-profile-id="${profile.id}">
-      ${image ? `<img class="person-photo" src="${escapeHtml(image)}" alt="Ảnh hồ sơ ${escapeHtml(profile.name)}">` : `<div class="person-photo person-photo-placeholder" aria-hidden="true">${escapeHtml(profile.name.trim().charAt(0).toUpperCase())}</div>`}
-      <div class="person-card-body"><div class="person-card-heading"><h2>${escapeHtml(profile.name)}</h2><span>${ageFrom(profile.birthDate)}</span></div>
+      ${image ? `<img class="person-photo" src="${escapeHtml(image)}" alt="Ảnh hồ sơ ${escapeHtml(name)}">` : `<div class="person-photo person-photo-placeholder" aria-hidden="true">${escapeHtml(name.trim().charAt(0).toUpperCase())}</div>`}
+      <div class="person-card-body"><div class="person-card-heading"><h2>${escapeHtml(name)}</h2><span>${ageFrom(profile.birthDate)}</span></div>
       <div class="person-meta">${profile.city ? `<span>${escapeHtml(profile.city)}</span>` : ""}<span>${escapeHtml(profile.lookingFor || "Dating")}</span></div>
       <p class="person-bio">${escapeHtml(profile.bio || "Chưa có phần giới thiệu.")}</p>
       <div class="person-interests">${(profile.interests || []).map((interest) => `<span class="interest-chip">${escapeHtml(interest.name)}</span>`).join("")}</div>
-      ${allowSwipe ? `<div class="person-card-actions"><button type="button" data-swipe="false">Bỏ qua</button><button type="button" data-swipe="true">Thích ♡</button></div>` : ""}</div></article>`;
+      ${allowSwipe ? `<div class="person-card-actions"><button type="button" data-swipe="false">Bỏ qua</button><button type="button" data-swipe="true">Thích ♡</button></div>` : allowChat ? `<div class="person-card-actions person-card-chat-actions"><button class="person-card-chat-button" type="button" data-open-chat="${profile.id}" aria-label="Nhắn tin với ${escapeHtml(name)}"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M3 4.75A2.75 2.75 0 0 1 5.75 2h8.5A2.75 2.75 0 0 1 17 4.75v5.5A2.75 2.75 0 0 1 14.25 13H9l-4.5 3v-3.2A2.75 2.75 0 0 1 3 10.25z"/></svg>Nhắn tin</button></div>` : ""}</div></article>`;
   }).join("");
 }
 
@@ -287,9 +304,239 @@ async function loadMatches() {
   try {
     const matches = await request("/matches");
     document.querySelector("#match-count").textContent = matches.length;
-    renderProfiles(document.querySelector("#matches-results"), matches.map((match) => match.profile), false);
+    renderProfiles(document.querySelector("#matches-results"), matches.map((match) => match.profile), false, true);
   } catch (error) {
     notify(document.querySelector("#discover-message"), error.message);
+  }
+}
+
+async function openChatFromMatch(event) {
+  const button = event.target.closest("[data-open-chat]");
+  if (!button || !document.querySelector("#matches-page").contains(button)) return;
+  chatState.pendingUserId = button.dataset.openChat;
+  showPage("chat");
+}
+
+async function loadChatContacts() {
+  const list = document.querySelector("#chat-contact-list");
+  const status = document.querySelector("#chat-status");
+  try {
+    const matches = await request("/matches");
+    chatState.contacts = matches.map((match) => match.profile);
+    document.querySelector("#match-count").textContent = matches.length;
+    document.querySelector("#chat-contact-count").textContent = matches.length;
+
+    if (!chatState.contacts.length) {
+      list.innerHTML = '<p class="chat-contact-empty">Khi có kết đôi, bạn có thể bắt đầu nhắn tin tại đây.</p>';
+      chatState.pendingUserId = null;
+      clearActiveChat();
+      return;
+    }
+
+    renderChatContacts();
+    const preferredId = chatState.pendingUserId || chatState.activeUserId || chatState.contacts[0].id;
+    chatState.pendingUserId = null;
+    const preferredContact = chatState.contacts.find((profile) => profile.id === preferredId);
+    if (preferredContact) {
+      await selectChatContact(preferredContact.id);
+    } else {
+      clearActiveChat();
+    }
+  } catch (error) {
+    list.innerHTML = `<p class="chat-contact-empty">${escapeHtml(error.message)}</p>`;
+    notify(status, error.message);
+  }
+}
+
+function renderChatContacts() {
+  const list = document.querySelector("#chat-contact-list");
+  list.innerHTML = chatState.contacts.map((profile) => {
+    const name = cleanProfileName(profile.name);
+    const avatar = profile.photos?.find((photo) => photo.isAvatar) || profile.photos?.[0];
+    const image = photoUrl(avatar?.url);
+    const initials = (name || "K").trim().charAt(0).toUpperCase();
+    return `<button class="chat-contact ${chatState.activeUserId === profile.id ? "is-active" : ""}" data-chat-user="${profile.id}" type="button">
+      ${image ? `<img class="chat-contact-avatar" src="${escapeHtml(image)}" alt="">` : `<span class="chat-contact-avatar chat-contact-initial">${escapeHtml(initials)}</span>`}
+      <span class="chat-contact-copy"><strong>${escapeHtml(name)}</strong><small>Nhấn để trò chuyện</small></span><span class="chat-contact-arrow" aria-hidden="true">›</span>
+    </button>`;
+  }).join("");
+}
+
+async function selectChatContact(userId) {
+  const profile = chatState.contacts.find((item) => item.id === userId);
+  if (!profile) return;
+  const changed = chatState.activeUserId !== userId;
+  if (changed) {
+    clearChatMediaUrls();
+    chatState.messages = [];
+    chatState.lastMessageKey = null;
+    document.querySelector("#chat-form").reset();
+    updateChatFileName();
+  }
+  chatState.activeUserId = userId;
+  document.querySelector("#chat-empty").hidden = true;
+  document.querySelector("#chat-thread-header").hidden = false;
+  document.querySelector("#chat-form").hidden = false;
+  const name = cleanProfileName(profile.name);
+  document.querySelector("#chat-peer-name").textContent = name;
+  const avatar = profile.photos?.find((photo) => photo.isAvatar) || profile.photos?.[0];
+  const image = photoUrl(avatar?.url);
+  const avatarElement = document.querySelector("#chat-peer-avatar");
+  avatarElement.innerHTML = image
+    ? `<img src="${escapeHtml(image)}" alt="">`
+    : escapeHtml((name || "K").trim().charAt(0).toUpperCase());
+  document.querySelector("#chat-status").hidden = true;
+  renderChatContacts();
+  await loadChatMessages(changed);
+  if (!document.querySelector("#chat-page").hidden) startChatPolling();
+}
+
+function clearActiveChat() {
+  stopChatPolling();
+  chatState.activeUserId = null;
+  chatState.messages = [];
+  chatState.lastMessageKey = null;
+  clearChatMediaUrls();
+  document.querySelector("#chat-empty").hidden = false;
+  document.querySelector("#chat-thread-header").hidden = true;
+  document.querySelector("#chat-form").hidden = true;
+  document.querySelector("#chat-form").reset();
+  updateChatFileName();
+  document.querySelector("#chat-status").hidden = true;
+  document.querySelector("#chat-messages").replaceChildren();
+}
+
+function clearChatMediaUrls() {
+  for (const url of chatState.mediaUrls.values()) {
+    if (typeof url === "string" && url.startsWith("blob:")) URL.revokeObjectURL(url);
+  }
+  chatState.mediaUrls.clear();
+}
+
+function stopChatPolling() {
+  if (chatState.pollTimer) clearInterval(chatState.pollTimer);
+  chatState.pollTimer = null;
+}
+
+function startChatPolling() {
+  stopChatPolling();
+  if (!chatState.activeUserId) return;
+  chatState.pollTimer = setInterval(() => loadChatMessages(false), 3000);
+}
+
+async function loadChatAttachment(message) {
+  if (!message.mediaUrl || chatState.mediaUrls.has(message.id)) return;
+  const conversationId = chatState.activeUserId;
+  chatState.mediaUrls.set(message.id, null);
+  try {
+    const headers = new Headers();
+    if (appState.token) headers.set("Authorization", `Bearer ${appState.token}`);
+    const response = await fetch(message.mediaUrl, { headers });
+    if (!response.ok) throw new Error("Không tải được tệp đính kèm.");
+    const objectUrl = URL.createObjectURL(await response.blob());
+    if (chatState.activeUserId !== conversationId) {
+      URL.revokeObjectURL(objectUrl);
+      return;
+    }
+    chatState.mediaUrls.set(message.id, objectUrl);
+  } catch {
+    if (chatState.activeUserId === conversationId) chatState.mediaUrls.set(message.id, "");
+  }
+}
+
+async function loadChatMessages(scrollToLatest = false) {
+  if (!chatState.activeUserId || chatState.isLoading) return;
+  chatState.isLoading = true;
+  const container = document.querySelector("#chat-messages");
+  const conversationId = chatState.activeUserId;
+  const wasNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+  try {
+    const messages = await request(`/chat/${conversationId}/messages`);
+    if (chatState.activeUserId !== conversationId) return;
+    const key = messages.map((message) => message.id).join("|");
+    if (key === chatState.lastMessageKey) return;
+    chatState.messages = messages;
+    await Promise.all(messages.map(loadChatAttachment));
+    chatState.lastMessageKey = key;
+    renderChatMessages(scrollToLatest || wasNearBottom);
+  } catch (error) {
+    notify(document.querySelector("#chat-status"), error.message);
+  } finally {
+    chatState.isLoading = false;
+  }
+}
+
+function renderChatMessages(scrollToLatest) {
+  const container = document.querySelector("#chat-messages");
+  if (!chatState.messages.length) {
+    container.innerHTML = '<p class="chat-no-messages">Chưa có tin nhắn. Hãy gửi lời chào đầu tiên nhé.</p>';
+    return;
+  }
+
+  container.innerHTML = chatState.messages.map((message) => {
+    const mediaUrl = chatState.mediaUrls.get(message.id);
+    const mediaMarkup = message.mediaUrl
+      ? mediaUrl
+        ? message.mediaType?.startsWith("video/")
+          ? `<video class="chat-message-media" src="${escapeHtml(mediaUrl)}" controls playsinline preload="metadata"></video>`
+          : `<img class="chat-message-media" src="${escapeHtml(mediaUrl)}" alt="Ảnh được gửi trong cuộc trò chuyện">`
+        : `<span class="chat-attachment-status">${mediaUrl === "" ? "Không tải được tệp đính kèm." : "Đang tải tệp..."}</span>`
+      : "";
+    const time = new Date(message.sentAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    return `<article class="chat-message-row ${message.isMine ? "is-mine" : ""}" data-chat-message="${message.id}">
+      <div class="chat-message-bubble">${message.content ? `<p>${escapeHtml(message.content)}</p>` : ""}${mediaMarkup}<time>${time}</time></div>
+    </article>`;
+  }).join("");
+  if (scrollToLatest) container.scrollTop = container.scrollHeight;
+}
+
+function updateChatFileName() {
+  const input = document.querySelector("#chat-file");
+  const label = document.querySelector("#chat-file-name");
+  const clearButton = document.querySelector("#chat-file-clear");
+  const file = input.files?.[0];
+  label.textContent = file ? file.name : "Tối đa 8 MB cho ảnh, 20 MB cho video";
+  clearButton.hidden = !file;
+}
+
+function insertChatEmoji(event) {
+  const button = event.target.closest("[data-chat-emoji]");
+  if (!button) return;
+  const input = document.querySelector("#chat-content");
+  const emoji = button.dataset.chatEmoji;
+  input.setRangeText(emoji, input.selectionStart, input.selectionEnd, "end");
+  input.focus();
+}
+
+async function submitChatMessage(event) {
+  event.preventDefault();
+  if (!chatState.activeUserId) return;
+  const input = document.querySelector("#chat-content");
+  const fileInput = document.querySelector("#chat-file");
+  const file = fileInput.files?.[0];
+  const content = input.value.trim();
+  if (!content && !file) return;
+
+  const form = event.currentTarget;
+  const button = form.querySelector("[type=submit]");
+  const formData = new FormData();
+  formData.set("content", content);
+  if (file) formData.set("media", file);
+  button.disabled = true;
+  document.querySelector("#chat-status").hidden = true;
+  try {
+    await request(`/chat/${chatState.activeUserId}/messages`, { method: "POST", body: formData });
+    input.value = "";
+    fileInput.value = "";
+    updateChatFileName();
+    document.querySelector("#chat-emoji-picker").hidden = true;
+    document.querySelector("#chat-emoji-toggle").setAttribute("aria-expanded", "false");
+    await loadChatMessages(true);
+  } catch (error) {
+    notify(document.querySelector("#chat-status"), error.message);
+  } finally {
+    button.disabled = false;
+    input.focus();
   }
 }
 
@@ -360,22 +607,24 @@ async function loadJourney() {
     }
 
     feed.innerHTML = posts.map((post) => {
+      const authorName = cleanProfileName(post.authorName);
+      const authorImage = photoUrl(post.authorPhotoUrl);
       const media = post.mediaUrl
         ? post.mediaType?.startsWith("video/")
           ? `<video class="journey-media" src="${escapeHtml(post.mediaUrl)}" controls playsinline></video>`
-          : `<img class="journey-media" src="${escapeHtml(post.mediaUrl)}" alt="Ảnh hành trình của ${escapeHtml(post.authorName)}">`
+          : `<img class="journey-media" src="${escapeHtml(post.mediaUrl)}" alt="Ảnh hành trình của ${escapeHtml(authorName)}">`
         : "";
       const deleteButton = post.isMine
         ? `<button class="journey-delete" data-journey-delete="${post.id}" type="button">Xóa</button>`
         : "";
       const likeLabel = post.isLikedByMe ? "Đã thích" : "Thích";
-      const initials = (post.authorName || "K").trim().charAt(0).toUpperCase();
+      const initials = (authorName || "K").trim().charAt(0).toUpperCase();
       return `
         <article class="journey-card" data-journey-post-id="${post.id}">
           <header class="journey-header">
-            <div class="journey-author-avatar">${escapeHtml(initials)}</div>
+            <div class="journey-author-avatar">${authorImage ? `<img src="${escapeHtml(authorImage)}" alt="">` : escapeHtml(initials)}</div>
             <div class="journey-author-meta">
-              <strong>${escapeHtml(post.authorName)}</strong>
+              <strong>${escapeHtml(authorName)}</strong>
               <time>${new Date(post.createdAt).toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })}</time>
             </div>
             ${deleteButton}
@@ -418,7 +667,7 @@ async function loadJourneyComments(postId) {
     list.innerHTML = comments.length
       ? comments.map((comment) => `
           <div class="journey-comment-item">
-            <strong>${escapeHtml(comment.authorName)}</strong>
+            <strong>${escapeHtml(cleanProfileName(comment.authorName))}</strong>
             <span>${escapeHtml(comment.content)}</span>
           </div>`).join("")
       : '<p class="journey-empty-comment">Chưa có bình luận nào.</p>';
@@ -472,6 +721,11 @@ async function deleteJourneyPost(event) {
 }
 
 function logout() {
+  stopChatPolling();
+  clearChatMediaUrls();
+  chatState.contacts = [];
+  chatState.activeUserId = null;
+  chatState.pendingUserId = null;
   localStorage.removeItem("kiss.accessToken");
   localStorage.removeItem("kiss.profile");
   appState.token = null;
@@ -492,6 +746,29 @@ async function startApp() {
   document.querySelector("#photo-form").addEventListener("submit", uploadPhoto);
   document.querySelector("#photo-list").addEventListener("click", managePhoto);
   document.querySelector("#discover-results").addEventListener("click", swipe);
+  document.querySelector("#matches-results").addEventListener("click", openChatFromMatch);
+  document.querySelector("#chat-contact-list").addEventListener("click", (event) => {
+    const contact = event.target.closest("[data-chat-user]");
+    if (contact) selectChatContact(contact.dataset.chatUser);
+  });
+  document.querySelector("#chat-form").addEventListener("submit", submitChatMessage);
+  document.querySelector("#chat-file").addEventListener("change", updateChatFileName);
+  document.querySelector("#chat-file-clear").addEventListener("click", () => {
+    document.querySelector("#chat-file").value = "";
+    updateChatFileName();
+  });
+  document.querySelector("#chat-emoji-toggle").addEventListener("click", (event) => {
+    const picker = document.querySelector("#chat-emoji-picker");
+    picker.hidden = !picker.hidden;
+    event.currentTarget.setAttribute("aria-expanded", String(!picker.hidden));
+  });
+  document.querySelector("#chat-emoji-picker").addEventListener("click", insertChatEmoji);
+  document.querySelector("#chat-content").addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      event.currentTarget.form.requestSubmit();
+    }
+  });
   document.querySelector("#journey-form").addEventListener("submit", submitJourneyPost);
   document.querySelector("#journey-media").addEventListener("change", updateJourneyPreview);
   document.querySelector("#journey-refresh").addEventListener("click", loadJourney);

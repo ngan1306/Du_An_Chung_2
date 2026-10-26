@@ -167,10 +167,30 @@ public sealed record MatchResponse(
     UserProfileResponse Profile,
     DateTimeOffset MatchedAt);
 
+/// <summary>A private message sent between two matched users.</summary>
+/// <param name="Id">The message identifier.</param>
+/// <param name="SenderId">The sender's user identifier.</param>
+/// <param name="SenderName">The sender's display name.</param>
+/// <param name="Content">The optional text content.</param>
+/// <param name="MediaUrl">The authenticated media URL, when an attachment exists.</param>
+/// <param name="MediaType">The validated image or video MIME type.</param>
+/// <param name="SentAt">When the message was sent.</param>
+/// <param name="IsMine">Whether the message belongs to the signed-in user.</param>
+public sealed record ChatMessageResponse(
+    Guid Id,
+    Guid SenderId,
+    string SenderName,
+    string? Content,
+    string? MediaUrl,
+    string? MediaType,
+    DateTimeOffset SentAt,
+    bool IsMine);
+
 /// <summary>A journey post shown in the authenticated feed.</summary>
 /// <param name="Id">The post identifier.</param>
 /// <param name="UserId">The author's user identifier.</param>
 /// <param name="AuthorName">The author's display name.</param>
+/// <param name="AuthorPhotoUrl">The author's profile photo URL, if present.</param>
 /// <param name="Content">The text of the post.</param>
 /// <param name="MediaUrl">The uploaded image or video URL, if present.</param>
 /// <param name="MediaType">The validated MIME type, if media is present.</param>
@@ -183,6 +203,7 @@ public sealed record JourneyPostResponse(
     Guid Id,
     Guid UserId,
     string AuthorName,
+    string? AuthorPhotoUrl,
     string Content,
     string? MediaUrl,
     string? MediaType,

@@ -9,8 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/app.css">
-  <script src="/app.js" defer></script>
+  <link rel="stylesheet" href="/app.css?v=profile-sync-20261026">
+  <script src="/app.js?v=profile-sync-20261026" defer></script>
 </head>
 <body>
   <main class="auth-layout">
@@ -78,6 +78,7 @@
         <button class="app-nav-item is-active" data-page="discover" type="button">Khám phá</button>
         <button class="app-nav-item" data-page="journey" type="button">Hành trình</button>
         <button class="app-nav-item" data-page="matches" type="button">Kết đôi <span id="match-count">0</span></button>
+        <button class="app-nav-item" data-page="chat" type="button">Tin nhắn</button>
         <button class="app-nav-item" data-page="profile" type="button">Hồ sơ của tôi</button>
       </nav>
       <div class="app-account"><span id="app-user-name">Thành viên</span><button id="logout-button" class="logout-button" type="button">Đăng xuất</button></div>
@@ -127,6 +128,41 @@
     <section id="matches-page" class="app-page" hidden>
       <header class="page-heading"><div><p class="eyebrow">HAI CHIỀU CÙNG THÍCH</p><h1>Kết đôi</h1></div><p>Những kết nối đã bắt đầu.</p></header>
       <div id="matches-results" class="profile-grid"></div>
+    </section>
+
+    <section id="chat-page" class="app-page chat-page" hidden>
+      <header class="page-heading"><div><p class="eyebrow">BẮT ĐẦU MỘT CUỘC TRÒ CHUYỆN</p><h1>Tin nhắn</h1></div><p>Chỉ những người đã kết đôi mới có thể nhắn tin với nhau.</p></header>
+      <div class="chat-layout">
+        <aside class="chat-contact-panel" aria-label="Danh sách kết đôi">
+          <div class="chat-contact-heading"><h2>Kết đôi</h2><span id="chat-contact-count">0</span></div>
+          <div id="chat-contact-list" class="chat-contact-list"></div>
+        </aside>
+        <section class="chat-thread" aria-label="Cuộc trò chuyện">
+          <div id="chat-empty" class="chat-empty"><span aria-hidden="true">♡</span><strong>Chọn một kết đôi để nhắn tin</strong><p>Bạn có thể gửi tin nhắn, ảnh, video và emoji.</p></div>
+          <header id="chat-thread-header" class="chat-thread-header" hidden>
+            <div id="chat-peer-avatar" class="chat-peer-avatar"></div>
+            <div><strong id="chat-peer-name"></strong><span>Đã kết đôi với bạn</span></div>
+          </header>
+          <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions text"></div>
+          <p id="chat-status" class="form-message chat-status" role="status" aria-live="polite" hidden></p>
+          <form id="chat-form" class="chat-composer" hidden>
+            <div class="chat-composer-tools">
+              <div class="chat-emoji-wrap">
+                <button id="chat-emoji-toggle" class="chat-tool-button" type="button" aria-label="Chọn emoji" aria-expanded="false">☺</button>
+                <div id="chat-emoji-picker" class="chat-emoji-picker" hidden aria-label="Emoji">
+                  <button type="button" data-chat-emoji="😊">😊</button><button type="button" data-chat-emoji="😂">😂</button><button type="button" data-chat-emoji="😍">😍</button><button type="button" data-chat-emoji="🥰">🥰</button><button type="button" data-chat-emoji="😉">😉</button><button type="button" data-chat-emoji="👋">👋</button><button type="button" data-chat-emoji="🙌">🙌</button><button type="button" data-chat-emoji="❤️">❤️</button><button type="button" data-chat-emoji="👍">👍</button><button type="button" data-chat-emoji="✨">✨</button>
+                </div>
+              </div>
+              <label class="chat-file-button"><span aria-hidden="true">＋</span> Ảnh/video<input id="chat-file" name="media" type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm"></label>
+              <span id="chat-file-name" class="chat-file-name">Tối đa 8 MB cho ảnh, 20 MB cho video</span><button id="chat-file-clear" class="chat-file-clear" type="button" aria-label="Bỏ tệp đã chọn" hidden>×</button>
+            </div>
+            <div class="chat-compose-row">
+              <textarea id="chat-content" name="content" rows="2" maxlength="2000" placeholder="Viết lời nhắn..." aria-label="Nội dung tin nhắn"></textarea>
+              <button class="chat-send-button" type="submit">Gửi</button>
+            </div>
+          </form>
+        </section>
+      </div>
     </section>
 
     <section id="journey-page" class="app-page journey-page" hidden>

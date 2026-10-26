@@ -19,6 +19,7 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
     public DbSet<JourneyPost> JourneyPosts => Set<JourneyPost>();
     public DbSet<JourneyPostLike> JourneyPostLikes => Set<JourneyPostLike>();
     public DbSet<JourneyComment> JourneyComments => Set<JourneyComment>();
+    public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -34,6 +35,15 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
         modelBuilder.Entity<User>()
             .Property(user => user.Name)
             .HasMaxLength(80);
+        modelBuilder.Entity<User>()
+            .Property(user => user.Email)
+            .HasMaxLength(256);
+        modelBuilder.Entity<User>()
+            .Property(user => user.NormalizedEmail)
+            .HasMaxLength(256);
+        modelBuilder.Entity<User>()
+            .Property(user => user.PasswordHash)
+            .HasMaxLength(512);
         modelBuilder.Entity<User>()
             .Property(user => user.Bio)
             .HasMaxLength(500);
@@ -88,7 +98,7 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
         modelBuilder.Entity<ProfilePhoto>()
             .HasIndex(photo => new { photo.UserId, photo.IsAvatar })
             .IsUnique()
-            .HasFilter("\"IsAvatar\" = 1");
+            .HasFilter("[IsAvatar] = 1");
         modelBuilder.Entity<ProfilePhoto>()
             .HasOne(photo => photo.User)
             .WithMany(user => user.Photos)
@@ -149,7 +159,7 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
             .HasOne(like => like.User)
             .WithMany()
             .HasForeignKey(like => like.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.NoAction);
 
         modelBuilder.Entity<JourneyComment>()
             .Property(comment => comment.Content)
@@ -168,6 +178,33 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
             .HasOne(comment => comment.User)
             .WithMany()
             .HasForeignKey(comment => comment.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ChatMessage>()
+            .Property(message => message.Content)
+            .HasMaxLength(2000);
+        modelBuilder.Entity<ChatMessage>()
+            .Property(message => message.MediaFileName)
+            .HasMaxLength(80);
+        modelBuilder.Entity<ChatMessage>()
+            .Property(message => message.MediaType)
+            .HasMaxLength(32);
+        modelBuilder.Entity<ChatMessage>()
+            .Property(message => message.SentAt)
+            .HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<ChatMessage>()
+            .HasIndex(message => new { message.SenderId, message.RecipientId, message.SentAt });
+        modelBuilder.Entity<ChatMessage>()
+            .HasIndex(message => message.RecipientId);
+        modelBuilder.Entity<ChatMessage>()
+            .HasOne(message => message.Sender)
+            .WithMany()
+            .HasForeignKey(message => message.SenderId)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<ChatMessage>()
+            .HasOne(message => message.Recipient)
+            .WithMany()
+            .HasForeignKey(message => message.RecipientId)
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }
