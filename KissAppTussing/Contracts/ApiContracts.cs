@@ -190,6 +190,22 @@ public sealed record MatchResponse(
     UserProfileResponse Profile,
     DateTimeOffset MatchedAt);
 
+/// <summary>A profile the signed-in user liked.</summary>
+/// <param name="Profile">The profile that was liked.</param>
+/// <param name="SwipedAt">When the user liked the profile.</param>
+/// <param name="IsMutualLike">Whether both users liked each other.</param>
+public sealed record LikedProfileResponse(
+    UserProfileResponse Profile,
+    DateTimeOffset SwipedAt,
+    bool IsMutualLike);
+
+/// <summary>A profile the signed-in user passed on.</summary>
+/// <param name="Profile">The profile that was passed on.</param>
+/// <param name="SwipedAt">When the user passed on the profile.</param>
+public sealed record RejectedProfileResponse(
+    UserProfileResponse Profile,
+    DateTimeOffset SwipedAt);
+
 /// <summary>A private message sent between two matched users.</summary>
 /// <param name="Id">The message identifier.</param>
 /// <param name="SenderId">The sender's user identifier.</param>

@@ -11,6 +11,49 @@ internal sealed class ChatService(DatingDbContext database, IWebHostEnvironment 
     private const long MaxImageBytes = 8 * 1024 * 1024;
     private const long MaxVideoBytes = 20 * 1024 * 1024;
 
+    public async Task<IReadOnlyList<UserProfileResponse>> GetContactsAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var matchedUserIds = await database.Matches.AsNoTracking()
+            .Where(match => match.FirstUserId == userId || match.SecondUserId == userId)
+            .OrderByDescending(match => match.MatchedAt)
+            .Select(match => match.FirstUserId == userId ? match.SecondUserId : match.FirstUserId)
+            .ToListAsync(cancellationToken);
+
+        var outgoingLikes = await database.Swipes.AsNoTracking()
+            .Where(swipe => swipe.FromUserId == userId && swipe.IsLike
+                && !database.Swipes.Any(reply => reply.FromUserId == swipe.ToUserId
+                    && reply.ToUserId == userId && !reply.IsLike))
+            .OrderByDescending(swipe => swipe.CreatedAt)
+            .Select(swipe => swipe.ToUserId)
+            .ToListAsync(cancellationToken);
+
+        var incomingLikes = await database.Swipes.AsNoTracking()
+            .Where(swipe => swipe.ToUserId == userId && swipe.IsLike
+                && !database.Swipes.Any(reply => reply.FromUserId == userId
+                    && reply.ToUserId == swipe.FromUserId && !reply.IsLike))
+            .OrderByDescending(swipe => swipe.CreatedAt)
+            .Select(swipe => swipe.FromUserId)
+            .ToListAsync(cancellationToken);
+
+        var contactIds = matchedUserIds.Concat(outgoingLikes).Concat(incomingLikes).Distinct().ToArray();
+        if (contactIds.Length == 0) return [];
+
+        var profiles = await database.Users.AsNoTracking()
+            .Where(user => contactIds.Contains(user.Id))
+            .Include(user => user.Photos)
+            .Include(user => user.Interests)
+                .ThenInclude(userInterest => userInterest.Interest)
+            .AsSplitQuery()
+            .ToDictionaryAsync(user => user.Id, cancellationToken);
+
+        return contactIds
+            .Where(contactId => profiles.ContainsKey(contactId))
+            .Select(contactId => ToProfile(profiles[contactId]))
+            .ToArray();
+    }
+
     public async Task<ChatMessagesResult> GetMessagesAsync(
         Guid userId,
         Guid otherUserId,
@@ -159,10 +202,45 @@ internal sealed class ChatService(DatingDbContext database, IWebHostEnvironment 
             return false;
         }
 
-        return await database.Matches.AnyAsync(match =>
+        if (await database.Matches.AnyAsync(match =>
             (match.FirstUserId == userId && match.SecondUserId == otherUserId)
-            || (match.FirstUserId == otherUserId && match.SecondUserId == userId), cancellationToken);
+            || (match.FirstUserId == otherUserId && match.SecondUserId == userId), cancellationToken))
+        {
+            return true;
+        }
+
+        var pendingOutgoingLike = await database.Swipes.AnyAsync(swipe =>
+            swipe.FromUserId == userId && swipe.ToUserId == otherUserId && swipe.IsLike
+            && !database.Swipes.Any(reply => reply.FromUserId == otherUserId
+                && reply.ToUserId == userId && !reply.IsLike), cancellationToken);
+        if (pendingOutgoingLike) return true;
+
+        return await database.Swipes.AnyAsync(swipe =>
+            swipe.FromUserId == otherUserId && swipe.ToUserId == userId && swipe.IsLike
+            && !database.Swipes.Any(reply => reply.FromUserId == userId
+                && reply.ToUserId == otherUserId && !reply.IsLike), cancellationToken);
     }
+
+    private static UserProfileResponse ToProfile(User user) => new(
+        user.Id,
+        user.Name,
+        user.BirthDate,
+        user.Bio,
+        user.Gender,
+        user.City,
+        user.Occupation,
+        user.Education,
+        user.LookingFor,
+        user.Photos.Select(photo => new ProfilePhotoResponse(
+            photo.Id, photo.Url, photo.IsAvatar, photo.SortOrder))
+            .OrderByDescending(photo => photo.IsAvatar)
+            .ThenBy(photo => photo.SortOrder)
+            .ToArray(),
+        user.Interests.Select(userInterest => new InterestResponse(
+            userInterest.InterestId, userInterest.Interest.Name))
+            .OrderBy(interest => interest.Name)
+            .ToArray(),
+        user.CreatedAt);
 
     private string GetMessageDirectory() =>
         Path.Combine(environment.ContentRootPath, "App_Data", "chat");

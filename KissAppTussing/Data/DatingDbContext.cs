@@ -237,9 +237,9 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
         modelBuilder.Entity<ConnectionRequest>().Property(connection => connection.Status).HasMaxLength(16);
         modelBuilder.Entity<ConnectionRequest>().Property(connection => connection.CreatedAt).HasConversion(UtcDateTimeOffsetConverter);
         modelBuilder.Entity<ConnectionRequest>().HasIndex(connection => new { connection.RequestedByUserId, connection.Status });
-        modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.FirstUserId).OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.SecondUserId).OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.RequestedByUserId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.FirstUserId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.SecondUserId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.RequestedByUserId).OnDelete(DeleteBehavior.NoAction);
 
         modelBuilder.Entity<Conversation>()
             .HasIndex(conversation => new { conversation.FirstUserId, conversation.SecondUserId })
@@ -247,13 +247,13 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
         modelBuilder.Entity<Conversation>().Property(conversation => conversation.FirstUserReadAt).HasConversion(UtcDateTimeOffsetConverter);
         modelBuilder.Entity<Conversation>().Property(conversation => conversation.SecondUserReadAt).HasConversion(UtcDateTimeOffsetConverter);
         modelBuilder.Entity<Conversation>().Property(conversation => conversation.UpdatedAt).HasConversion(UtcDateTimeOffsetConverter);
-        modelBuilder.Entity<Conversation>().HasOne<User>().WithMany().HasForeignKey(conversation => conversation.FirstUserId).OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Conversation>().HasOne<User>().WithMany().HasForeignKey(conversation => conversation.SecondUserId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Conversation>().HasOne<User>().WithMany().HasForeignKey(conversation => conversation.FirstUserId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<Conversation>().HasOne<User>().WithMany().HasForeignKey(conversation => conversation.SecondUserId).OnDelete(DeleteBehavior.NoAction);
 
         modelBuilder.Entity<Message>().Property(message => message.Content).HasMaxLength(2000);
         modelBuilder.Entity<Message>().Property(message => message.SentAt).HasConversion(UtcDateTimeOffsetConverter);
         modelBuilder.Entity<Message>().HasIndex(message => new { message.ConversationId, message.SentAt, message.Id });
         modelBuilder.Entity<Message>().HasOne(message => message.Conversation).WithMany(conversation => conversation.Messages).HasForeignKey(message => message.ConversationId).OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Message>().HasOne<User>().WithMany().HasForeignKey(message => message.SenderId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Message>().HasOne<User>().WithMany().HasForeignKey(message => message.SenderId).OnDelete(DeleteBehavior.NoAction);
     }
 }

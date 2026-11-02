@@ -382,6 +382,23 @@ internal sealed class DatingService(DatingDbContext database, IWebHostEnvironmen
             new SwipeResponse(request.TargetUserId, request.IsLike, matchId is not null, matchId));
     }
 
+    public async Task<bool> UndoPassAsync(
+        Guid userId,
+        Guid targetUserId,
+        CancellationToken cancellationToken)
+    {
+        var swipe = await database.Swipes.SingleOrDefaultAsync(
+            item => item.FromUserId == userId
+                && item.ToUserId == targetUserId
+                && !item.IsLike,
+            cancellationToken);
+        if (swipe is null) return false;
+
+        database.Swipes.Remove(swipe);
+        await database.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<IReadOnlyList<MatchResponse>> GetMatchesAsync(
         Guid userId,
         CancellationToken cancellationToken)
@@ -407,6 +424,68 @@ internal sealed class DatingService(DatingDbContext database, IWebHostEnvironmen
             match.Id,
             ToProfile(match.FirstUserId == userId ? match.SecondUser : match.FirstUser),
             match.MatchedAt)).ToArray();
+    }
+
+    public async Task<IReadOnlyList<LikedProfileResponse>> GetLikedProfilesAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var swipes = await database.Swipes.AsNoTracking()
+            .Where(swipe => swipe.FromUserId == userId && swipe.IsLike)
+            .OrderByDescending(swipe => swipe.CreatedAt)
+            .Select(swipe => new { swipe.ToUserId, swipe.CreatedAt })
+            .ToListAsync(cancellationToken);
+        if (swipes.Count == 0) return [];
+
+        var userIds = swipes.Select(swipe => swipe.ToUserId).Distinct().ToArray();
+        var profiles = await database.Users.AsNoTracking()
+            .Where(user => userIds.Contains(user.Id))
+            .Include(user => user.Photos)
+            .Include(user => user.Interests)
+                .ThenInclude(userInterest => userInterest.Interest)
+            .AsSplitQuery()
+            .ToDictionaryAsync(user => user.Id, cancellationToken);
+
+        var mutualUserIds = await database.Matches.AsNoTracking()
+            .Where(match => match.FirstUserId == userId || match.SecondUserId == userId)
+            .Select(match => match.FirstUserId == userId ? match.SecondUserId : match.FirstUserId)
+            .ToHashSetAsync(cancellationToken);
+
+        return swipes
+            .Where(swipe => profiles.ContainsKey(swipe.ToUserId))
+            .Select(swipe => new LikedProfileResponse(
+                ToProfile(profiles[swipe.ToUserId]),
+                swipe.CreatedAt,
+                mutualUserIds.Contains(swipe.ToUserId)))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyList<RejectedProfileResponse>> GetRejectedProfilesAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var swipes = await database.Swipes.AsNoTracking()
+            .Where(swipe => swipe.FromUserId == userId && !swipe.IsLike)
+            .OrderByDescending(swipe => swipe.CreatedAt)
+            .Select(swipe => new { swipe.ToUserId, swipe.CreatedAt })
+            .ToListAsync(cancellationToken);
+        if (swipes.Count == 0) return [];
+
+        var userIds = swipes.Select(swipe => swipe.ToUserId).Distinct().ToArray();
+        var profiles = await database.Users.AsNoTracking()
+            .Where(user => userIds.Contains(user.Id))
+            .Include(user => user.Photos)
+            .Include(user => user.Interests)
+                .ThenInclude(userInterest => userInterest.Interest)
+            .AsSplitQuery()
+            .ToDictionaryAsync(user => user.Id, cancellationToken);
+
+        return swipes
+            .Where(swipe => profiles.ContainsKey(swipe.ToUserId))
+            .Select(swipe => new RejectedProfileResponse(
+                ToProfile(profiles[swipe.ToUserId]),
+                swipe.CreatedAt))
+            .ToArray();
     }
 
     private static UserProfileResponse ToProfile(User user) => new(

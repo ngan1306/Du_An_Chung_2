@@ -12,14 +12,18 @@ internal static class ChatEndpoints
         var chat = endpoints.MapGroup("/api/chat")
             .RequireAuthorization();
 
+        chat.MapGet("/contacts", GetContactsAsync)
+            .WithName("GetChatContacts")
+            .WithSummary("List users the signed-in user can message");
+
         chat.MapGet("/{otherUserId:guid}/messages", GetMessagesAsync)
             .WithName("GetChatMessages")
-            .WithSummary("Get messages with a matched user");
+            .WithSummary("Get messages with a liked or matched user");
 
         chat.MapPost("/{otherUserId:guid}/messages", SendMessageAsync)
             .DisableAntiforgery()
             .WithName("SendChatMessage")
-            .WithSummary("Send text, an image, or a video to a matched user")
+            .WithSummary("Send text, an image, or a video to a liked or matched user")
             .Accepts<IFormFile>("multipart/form-data")
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -31,6 +35,13 @@ internal static class ChatEndpoints
 
         return endpoints;
     }
+
+    private static async Task<Ok<IReadOnlyList<UserProfileResponse>>> GetContactsAsync(
+        System.Security.Claims.ClaimsPrincipal principal,
+        IChatService chatService,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await chatService.GetContactsAsync(
+            CurrentUser.GetId(principal), cancellationToken));
 
     private static async Task<Results<Ok<IReadOnlyList<ChatMessageResponse>>, NotFound<ProblemDetails>>> GetMessagesAsync(
         Guid otherUserId,

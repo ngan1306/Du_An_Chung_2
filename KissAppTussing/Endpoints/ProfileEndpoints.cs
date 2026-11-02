@@ -76,7 +76,7 @@ internal static class ProfileEndpoints
             });
         }
 
-        var pageSize = Math.Clamp(limit ?? 20, 1, 100);
+        var pageSize = Math.Clamp(limit ?? 20, 1, 150);
         return TypedResults.Ok(await datingService.DiscoverAsync(
             CurrentUser.GetId(principal), pageSize, search, gender, minAge, maxAge, city, lookingFor, interestId, cancellationToken));
     }

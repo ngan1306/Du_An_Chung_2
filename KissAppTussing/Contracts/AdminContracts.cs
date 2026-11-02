@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace KissAppTussing.Contracts;
 
 /// <summary>Aggregated data available to an authorized application owner.</summary>
@@ -12,6 +14,106 @@ public sealed record AdminOverviewResponse(
 
 /// <summary>A user row shown in the owner dashboard.</summary>
 public sealed record AdminUserSummary(Guid Id, string Name, string Email, DateTimeOffset CreatedAt);
+
+/// <summary>A user account visible to an authorized administrator.</summary>
+public sealed record AdminManagedUser(
+    Guid Id,
+    string Name,
+    string Email,
+    DateOnly BirthDate,
+    string Gender,
+    string Bio,
+    string? City,
+    string? Occupation,
+    string? Education,
+    string LookingFor,
+    DateTimeOffset CreatedAt);
+
+/// <summary>Profile and login details for an administrator-created account.</summary>
+public sealed record AdminCreateUserRequest
+{
+    /// <summary>The name displayed on the profile.</summary>
+    [Required, StringLength(80, MinimumLength = 2)]
+    public required string Name { get; init; }
+
+    /// <summary>The account email address.</summary>
+    [Required, EmailAddress, StringLength(254)]
+    public required string Email { get; init; }
+
+    /// <summary>The initial password, at least eight characters.</summary>
+    [Required, MinLength(8), StringLength(128)]
+    public required string Password { get; init; }
+
+    /// <summary>The user's date of birth.</summary>
+    public required DateOnly BirthDate { get; init; }
+
+    /// <summary>The user's gender identifier.</summary>
+    [Required, RegularExpression("^(Woman|Man|NonBinary|PreferNotToSay)$")]
+    public required string Gender { get; init; }
+
+    /// <summary>A short introduction shown on the profile.</summary>
+    [StringLength(500)]
+    public string Bio { get; init; } = string.Empty;
+
+    /// <summary>The user's city.</summary>
+    [StringLength(100)]
+    public string? City { get; init; }
+
+    /// <summary>The user's occupation.</summary>
+    [StringLength(120)]
+    public string? Occupation { get; init; }
+
+    /// <summary>The user's education.</summary>
+    [StringLength(120)]
+    public string? Education { get; init; }
+
+    /// <summary>The kind of connection the user is looking for.</summary>
+    [Required, RegularExpression("^(Friendship|Dating|Relationship)$")]
+    public required string LookingFor { get; init; }
+}
+
+/// <summary>Updated account details; leave NewPassword empty to keep the current password.</summary>
+public sealed record AdminUpdateUserRequest
+{
+    /// <summary>The name displayed on the profile.</summary>
+    [Required, StringLength(80, MinimumLength = 2)]
+    public required string Name { get; init; }
+
+    /// <summary>The account email address.</summary>
+    [Required, EmailAddress, StringLength(254)]
+    public required string Email { get; init; }
+
+    /// <summary>An optional replacement password; must be at least eight characters when supplied.</summary>
+    [StringLength(128)]
+    public string? NewPassword { get; init; }
+
+    /// <summary>The user's date of birth.</summary>
+    public required DateOnly BirthDate { get; init; }
+
+    /// <summary>The user's gender identifier.</summary>
+    [Required, RegularExpression("^(Woman|Man|NonBinary|PreferNotToSay)$")]
+    public required string Gender { get; init; }
+
+    /// <summary>A short introduction shown on the profile.</summary>
+    [StringLength(500)]
+    public string Bio { get; init; } = string.Empty;
+
+    /// <summary>The user's city.</summary>
+    [StringLength(100)]
+    public string? City { get; init; }
+
+    /// <summary>The user's occupation.</summary>
+    [StringLength(120)]
+    public string? Occupation { get; init; }
+
+    /// <summary>The user's education.</summary>
+    [StringLength(120)]
+    public string? Education { get; init; }
+
+    /// <summary>The kind of connection the user is looking for.</summary>
+    [Required, RegularExpression("^(Friendship|Dating|Relationship)$")]
+    public required string LookingFor { get; init; }
+}
 
 /// <summary>Exportable application data. Password hashes and private chat contents are excluded.</summary>
 public sealed record AdminDataExport(

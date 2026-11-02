@@ -6,7 +6,7 @@ const resetPasswordForm = document.querySelector("#reset-password-form");
 const appView = document.querySelector("#dating-app");
 const authMessage = document.querySelector("#auth-message");
 const authButton = document.querySelector("#auth-submit");
-const appState = { token: localStorage.getItem("kiss.accessToken"), profile: null, interests: [], resetToken: null, connections: [], conversations: [], selectedConversationId: null, chatPoll: null };
+const appState = { token: localStorage.getItem("kiss.accessToken"), profile: null, interests: [], resetToken: null, connections: [], conversations: [], selectedConversationId: null, chatPoll: null, discoverProfiles: [], discoverPage: 1, discoverPageSize: 30, adminUsers: [] };
 const chatState = {
   contacts: [],
   activeUserId: null,
@@ -81,7 +81,10 @@ async function request(path, options = {}) {
   if (response.status === 204) return null;
   const contentType = response.headers.get("content-type") || "";
   const result = contentType.includes("json") ? await response.json() : await response.text();
-  if (!response.ok) throw new Error(result?.detail || result?.title || "Không thể hoàn tất yêu cầu.");
+  if (!response.ok) {
+    const validationError = Object.values(result?.errors || {}).flat()[0];
+    throw new Error(result?.detail || validationError || result?.title || "Không thể hoàn tất yêu cầu.");
+  }
   return result;
 }
 
@@ -205,12 +208,12 @@ async function enterWorkspace() {
   document.querySelector("#app-user-name").textContent = appState.profile.name;
   await loadInterests();
   fillProfile();
-  await Promise.all([loadDiscover(), loadMatches(), loadJourney(), loadAdminOverview()]);
+  await Promise.all([loadDiscover(), loadLikedProfiles(), loadRejectedProfiles(), loadJourney(), loadAdminOverview()]);
   showPage("discover");
 }
 
 function showPage(page) {
-  for (const id of ["discover", "journey", "profile", "matches", "chat", "connections", "messages", "admin"]) {
+  for (const id of ["discover", "journey", "profile", "matches", "passed", "chat", "connections", "messages", "admin"]) {
     document.getElementById(`${id}-page`).hidden = id !== page;
   }
   document.querySelectorAll("[data-page]").forEach((button) => {
@@ -219,7 +222,8 @@ function showPage(page) {
   if (page === "discover") loadDiscover();
   if (page === "profile") loadProfile();
   if (page === "journey") loadJourney();
-  if (page === "matches") loadMatches();
+  if (page === "matches") loadLikedProfiles();
+  if (page === "passed") loadRejectedProfiles();
   if (page === "connections") loadConnections();
   if (page === "chat") loadChatContacts();
   else stopChatPolling();
@@ -231,19 +235,135 @@ function showPage(page) {
 async function loadAdminOverview() {
   const nav = document.querySelector("#admin-nav");
   try {
-    const overview = await request("/admin/overview");
+    const [overview, users] = await Promise.all([
+      request("/admin/overview"),
+      request("/admin/users")
+    ]);
     nav.hidden = false;
+    appState.adminUsers = users;
     document.querySelector("#admin-stat-grid").innerHTML = [
       ["Tài khoản", overview.userCount], ["Lượt thích/bỏ qua", overview.swipeCount],
       ["Lượt kết đôi", overview.matchCount], ["Bài viết", overview.journeyPostCount],
       ["Bình luận", overview.journeyCommentCount], ["Tin nhắn (chỉ số lượng)", overview.chatMessageCount]
     ].map(([label, value]) => `<article class="admin-stat"><span>${escapeHtml(label)}</span><strong>${value}</strong></article>`).join("");
-    document.querySelector("#admin-users").innerHTML = overview.recentUsers.length
-      ? `<div class="admin-user-row admin-user-heading"><span>Tên</span><span>Email</span><span>Ngày tạo</span></div>${overview.recentUsers.map((user) => `<div class="admin-user-row"><strong>${escapeHtml(user.name)}</strong><span>${escapeHtml(user.email)}</span><time>${new Date(user.createdAt).toLocaleDateString("vi-VN")}</time></div>`).join("")}`
-      : '<p class="empty-message">Chưa có tài khoản.</p>';
+    renderAdminUsers(users);
     document.querySelector("#admin-message").hidden = true;
   } catch {
     nav.hidden = true;
+  }
+}
+
+function renderAdminUsers(users) {
+  const container = document.querySelector("#admin-users");
+  container.innerHTML = users.length
+    ? `<div class="admin-user-table-wrap"><table class="admin-user-table"><thead><tr><th>Họ tên</th><th>Email</th><th>Thành phố</th><th>Ngày tạo</th><th>Thao tác</th></tr></thead><tbody>${users.map((user) => `
+      <tr>
+        <td><strong>${escapeHtml(user.name)}</strong></td>
+        <td>${escapeHtml(user.email)}</td>
+        <td>${escapeHtml(user.city || "—")}</td>
+        <td><time>${new Date(user.createdAt).toLocaleDateString("vi-VN")}</time></td>
+        <td><div class="admin-user-actions"><button class="quiet-button" type="button" data-admin-edit="${escapeHtml(user.id)}">Sửa</button><button class="admin-delete-button" type="button" data-admin-delete="${escapeHtml(user.id)}" ${user.id === appState.profile?.id ? "disabled title=\"Không thể xóa tài khoản đang đăng nhập\"" : ""}>Xóa</button></div></td>
+      </tr>`).join("")}</tbody></table></div>`
+    : '<p class="empty-message">Chưa có tài khoản.</p>';
+}
+
+function resetAdminUserForm() {
+  const form = document.querySelector("#admin-user-form");
+  const password = document.querySelector("#admin-user-password");
+  form.reset();
+  delete form.dataset.userId;
+  password.required = true;
+  password.placeholder = "";
+  document.querySelector("#admin-password-hint").textContent = "Tối thiểu 8 ký tự";
+  document.querySelector("#admin-user-form-title").textContent = "Thêm tài khoản";
+  document.querySelector("#admin-user-submit").textContent = "Thêm tài khoản";
+  document.querySelector("#admin-user-cancel").hidden = true;
+}
+
+function editAdminUser(userId) {
+  const user = appState.adminUsers.find((candidate) => candidate.id === userId);
+  if (!user) return;
+
+  const form = document.querySelector("#admin-user-form");
+  form.dataset.userId = user.id;
+  form.elements.name.value = user.name;
+  form.elements.email.value = user.email;
+  form.elements.birthDate.value = user.birthDate;
+  form.elements.gender.value = user.gender;
+  form.elements.city.value = user.city || "";
+  form.elements.occupation.value = user.occupation || "";
+  form.elements.education.value = user.education || "";
+  form.elements.lookingFor.value = user.lookingFor;
+  form.elements.bio.value = user.bio || "";
+  const password = document.querySelector("#admin-user-password");
+  password.value = "";
+  password.required = false;
+  password.placeholder = "Để trống để giữ mật khẩu hiện tại";
+  document.querySelector("#admin-password-hint").textContent = "Không bắt buộc khi sửa";
+  document.querySelector("#admin-user-form-title").textContent = `Sửa tài khoản: ${user.name}`;
+  document.querySelector("#admin-user-submit").textContent = "Lưu thay đổi";
+  document.querySelector("#admin-user-cancel").hidden = false;
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function submitAdminUser(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  if (!form.reportValidity()) return;
+
+  const values = new FormData(form);
+  const password = values.get("password");
+  const body = {
+    name: values.get("name").trim(),
+    email: values.get("email").trim(),
+    birthDate: values.get("birthDate"),
+    gender: values.get("gender"),
+    city: values.get("city").trim() || null,
+    occupation: values.get("occupation").trim() || null,
+    education: values.get("education").trim() || null,
+    lookingFor: values.get("lookingFor"),
+    bio: values.get("bio").trim()
+  };
+  const userId = form.dataset.userId;
+  const button = document.querySelector("#admin-user-submit");
+  const message = document.querySelector("#admin-message");
+  button.disabled = true;
+  message.hidden = true;
+  try {
+    if (userId) {
+      body.newPassword = password || null;
+      const updatedUser = await request(`/admin/users/${userId}`, { method: "PUT", body: JSON.stringify(body) });
+      if (appState.profile?.id === userId) {
+        appState.profile = { ...appState.profile, ...updatedUser };
+        document.querySelector("#app-user-name").textContent = updatedUser.name;
+      }
+    } else {
+      body.password = password;
+      await request("/admin/users", { method: "POST", body: JSON.stringify(body) });
+    }
+    resetAdminUserForm();
+    await loadAdminOverview();
+    notify(message, userId ? "Đã cập nhật tài khoản." : "Đã thêm tài khoản mới.", true);
+  } catch (error) {
+    notify(message, error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function deleteAdminUser(userId) {
+  const user = appState.adminUsers.find((candidate) => candidate.id === userId);
+  if (!user || !window.confirm(`Xóa tài khoản ${user.name}? Hồ sơ, kết nối và tin nhắn liên quan cũng sẽ bị xóa.`)) return;
+
+  const message = document.querySelector("#admin-message");
+  message.hidden = true;
+  try {
+    await request(`/admin/users/${userId}`, { method: "DELETE" });
+    if (document.querySelector("#admin-user-form").dataset.userId === userId) resetAdminUserForm();
+    await loadAdminOverview();
+    notify(message, `Đã xóa tài khoản ${user.name}.`, true);
+  } catch (error) {
+    notify(message, error.message);
   }
 }
 
@@ -326,7 +446,8 @@ async function manageConnection(event) {
 function renderConversations() {
   const list = document.querySelector("#conversation-list");
   const unreadTotal = appState.conversations.reduce((sum, item) => sum + item.unreadCount, 0);
-  document.querySelector("#message-count").textContent = unreadTotal;
+  const count = document.querySelector("#message-count");
+  if (count) count.textContent = unreadTotal;
   list.innerHTML = appState.conversations.length ? appState.conversations.map((item) => `<button class="conversation-item ${item.id === appState.selectedConversationId ? "is-active" : ""}" data-open-conversation="${item.id}" type="button">${socialAvatar(item.user)}<span class="conversation-copy"><strong>${escapeHtml(item.user.name)}</strong><span>${escapeHtml(item.lastMessage || "Bắt đầu cuộc trò chuyện")}</span></span>${item.unreadCount ? `<span class="unread-count">${item.unreadCount}</span>` : ""}</button>`).join("") : '<p class="chat-empty">Bạn chưa có cuộc trò chuyện. Hãy kết nối với bạn bè trước.</p>';
 }
 
@@ -407,25 +528,63 @@ async function loadInterests() {
 async function loadDiscover() {
   const form = document.querySelector("#discover-filters");
   const values = new FormData(form);
-  const params = new URLSearchParams({ limit: "30" });
+  const params = new URLSearchParams({ limit: "150" });
   for (const key of ["search", "gender", "minAge", "maxAge", "city", "lookingFor", "interestId"]) {
     const value = values.get(key);
     if (value) params.set(key, value);
   }
   const results = document.querySelector("#discover-results");
   const message = document.querySelector("#discover-message");
+  const count = document.querySelector("#discover-count");
+  const pagination = document.querySelector("#discover-pagination");
   message.hidden = true;
+  count.textContent = "Đang tải hồ sơ...";
+  pagination.replaceChildren();
+  pagination.hidden = true;
   results.innerHTML = '<p class="empty-message">Đang tìm hồ sơ phù hợp...</p>';
   try {
     const profiles = await request(`/profiles/discover?${params.toString()}`);
-    renderProfiles(results, profiles, true);
+    appState.discoverProfiles = profiles;
+    appState.discoverPage = 1;
+    renderDiscoverPage();
   } catch (error) {
     results.replaceChildren();
+    count.textContent = "";
+    appState.discoverProfiles = [];
+    document.querySelector("#discover-pagination").hidden = true;
     notify(message, error.message);
   }
 }
 
-function renderProfiles(container, profiles, allowSwipe, allowChat = false) {
+function renderDiscoverPage() {
+  const results = document.querySelector("#discover-results");
+  const count = document.querySelector("#discover-count");
+  const pagination = document.querySelector("#discover-pagination");
+  const profiles = appState.discoverProfiles;
+  const pageCount = Math.max(1, Math.ceil(profiles.length / appState.discoverPageSize));
+  appState.discoverPage = Math.min(Math.max(appState.discoverPage, 1), pageCount);
+
+  if (!profiles.length) {
+    results.innerHTML = '<p class="empty-message">Đã xem hết các hồ sơ trong kết quả lọc.</p>';
+    count.textContent = "Đang hiển thị 0 hồ sơ";
+    pagination.replaceChildren();
+    pagination.hidden = true;
+    return;
+  }
+
+  const start = (appState.discoverPage - 1) * appState.discoverPageSize;
+  const visibleProfiles = profiles.slice(start, start + appState.discoverPageSize);
+  const end = start + visibleProfiles.length;
+  renderProfiles(results, visibleProfiles, true);
+  count.textContent = `Hồ sơ ${start + 1}–${end} trên ${profiles.length}`;
+  pagination.hidden = pageCount <= 1;
+  pagination.innerHTML = `
+    <button class="discover-page-button" type="button" data-discover-step="-1" ${appState.discoverPage === 1 ? "disabled" : ""}>Trang trước</button>
+    <span>Trang ${appState.discoverPage} / ${pageCount}</span>
+    <button class="discover-page-button" type="button" data-discover-step="1" ${appState.discoverPage === pageCount ? "disabled" : ""}>Trang sau</button>`;
+}
+
+function renderProfiles(container, profiles, allowSwipe, allowChat = false, swipeStatusByProfile = null) {
   if (!profiles.length) {
     container.innerHTML = '<p class="empty-message">Chưa tìm thấy hồ sơ phù hợp. Hãy thử điều chỉnh bộ lọc hoặc quay lại sau.</p>';
     return;
@@ -434,13 +593,25 @@ function renderProfiles(container, profiles, allowSwipe, allowChat = false) {
     const name = cleanProfileName(profile.name);
     const avatar = profile.photos?.find((photo) => photo.isAvatar) || profile.photos?.[0];
     const image = photoUrl(avatar?.url);
+    const swipeStatus = swipeStatusByProfile?.get(profile.id);
+    const actions = allowSwipe
+      ? `<div class="person-card-actions"><button type="button" data-swipe="false">Bỏ qua</button><button type="button" data-swipe="true">Thích ♡</button></div>`
+      : swipeStatusByProfile
+        ? `<div class="person-card-actions person-card-chat-actions ${swipeStatus?.isRejected ? "rejected-actions" : swipeStatus?.isMutualLike ? "" : "pending-like-actions"}">${swipeStatus?.isRejected
+          ? `<span class="rejected-status">Đã bỏ qua</span><button class="undo-swipe-button" type="button" data-undo-swipe="${profile.id}" aria-label="Thu hồi lượt bỏ qua với ${escapeHtml(name)}">Thu hồi</button>`
+          : swipeStatus?.isMutualLike
+            ? `<button class="person-card-chat-button" type="button" data-open-chat="${profile.id}" aria-label="Nhắn tin với ${escapeHtml(name)}"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M3 4.75A2.75 2.75 0 0 1 5.75 2h8.5A2.75 2.75 0 0 1 17 4.75v5.5A2.75 2.75 0 0 1 14.25 13H9l-4.5 3v-3.2A2.75 2.75 0 0 1 3 10.25z"/></svg>Nhắn tin</button>`
+            : `<span class="like-pending-status">Đã thích · đang chờ phản hồi</span><button class="person-card-chat-button" type="button" data-open-chat="${profile.id}" aria-label="Nhắn tin với ${escapeHtml(name)}"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M3 4.75A2.75 2.75 0 0 1 5.75 2h8.5A2.75 2.75 0 0 1 17 4.75v5.5A2.75 2.75 0 0 1 14.25 13H9l-4.5 3v-3.2A2.75 2.75 0 0 1 3 10.25z"/></svg>Nhắn tin</button>`}</div>`
+        : allowChat
+          ? `<div class="person-card-actions person-card-chat-actions"><button class="person-card-chat-button" type="button" data-open-chat="${profile.id}" aria-label="Nhắn tin với ${escapeHtml(name)}"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M3 4.75A2.75 2.75 0 0 1 5.75 2h8.5A2.75 2.75 0 0 1 17 4.75v5.5A2.75 2.75 0 0 1 14.25 13H9l-4.5 3v-3.2A2.75 2.75 0 0 1 3 10.25z"/></svg>Nhắn tin</button></div>`
+          : "";
     return `<article class="person-card" data-profile-id="${profile.id}">
       ${image ? `<img class="person-photo" src="${escapeHtml(image)}" alt="Ảnh hồ sơ ${escapeHtml(name)}">` : `<div class="person-photo person-photo-placeholder" aria-hidden="true">${escapeHtml(name.trim().charAt(0).toUpperCase())}</div>`}
       <div class="person-card-body"><div class="person-card-heading"><h2>${escapeHtml(name)}</h2><span>${ageFrom(profile.birthDate)}</span></div>
       <div class="person-meta">${profile.city ? `<span>${escapeHtml(profile.city)}</span>` : ""}<span>${escapeHtml(profile.lookingFor || "Dating")}</span></div>
       <p class="person-bio">${escapeHtml(profile.bio || "Chưa có phần giới thiệu.")}</p>
       <div class="person-interests">${(profile.interests || []).map((interest) => `<span class="interest-chip">${escapeHtml(interest.name)}</span>`).join("")}</div>
-      ${allowSwipe ? `<div class="person-card-actions"><button type="button" data-swipe="false">Bỏ qua</button><button type="button" data-swipe="true">Thích ♡</button></div>` : allowChat ? `<div class="person-card-actions person-card-chat-actions"><button class="person-card-chat-button" type="button" data-open-chat="${profile.id}" aria-label="Nhắn tin với ${escapeHtml(name)}"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M3 4.75A2.75 2.75 0 0 1 5.75 2h8.5A2.75 2.75 0 0 1 17 4.75v5.5A2.75 2.75 0 0 1 14.25 13H9l-4.5 3v-3.2A2.75 2.75 0 0 1 3 10.25z"/></svg>Nhắn tin</button></div>` : ""}</div></article>`;
+      ${actions}</div></article>`;
   }).join("");
 }
 
@@ -539,13 +710,12 @@ async function swipe(event) {
       method: "POST",
       body: JSON.stringify({ targetUserId: card.dataset.profileId, isLike: button.dataset.swipe === "true" })
     });
-    card.remove();
+    appState.discoverProfiles = appState.discoverProfiles.filter((profile) => profile.id !== card.dataset.profileId);
+    renderDiscoverPage();
+    if (result.isLike) await loadLikedProfiles();
+    else await loadRejectedProfiles();
     if (result.isMatch) {
-      await loadMatches();
-      notify(document.querySelector("#discover-message"), "Hai bạn đã thích nhau! Đã có một kết đôi mới.", true);
-    }
-    if (!document.querySelector("#discover-results .person-card")) {
-      document.querySelector("#discover-results").innerHTML = '<p class="empty-message">Đã xem hết các hồ sơ trong kết quả lọc.</p>';
+      notify(document.querySelector("#discover-message"), "Hai bạn đã thích nhau! Đã có một người bạn mới.", true);
     }
   } catch (error) {
     buttons.forEach((item) => { item.disabled = false; });
@@ -553,13 +723,51 @@ async function swipe(event) {
   }
 }
 
-async function loadMatches() {
+async function loadLikedProfiles() {
   try {
-    const matches = await request("/matches");
-    document.querySelector("#match-count").textContent = matches.length;
-    renderProfiles(document.querySelector("#matches-results"), matches.map((match) => match.profile), false, true);
+    const likes = await request("/swipes/liked");
+    document.querySelector("#match-count").textContent = likes.length;
+    const results = document.querySelector("#matches-results");
+    if (!likes.length) {
+      results.innerHTML = '<p class="empty-message">Bạn chưa thích hồ sơ nào. Hãy khám phá và chọn Thích để lưu hồ sơ ở đây.</p>';
+      return;
+    }
+    const statusByProfile = new Map(likes.map((item) => [item.profile.id, item]));
+    renderProfiles(results, likes.map((item) => item.profile), false, false, statusByProfile);
   } catch (error) {
     notify(document.querySelector("#discover-message"), error.message);
+  }
+}
+
+async function loadRejectedProfiles() {
+  const message = document.querySelector("#passed-message");
+  const results = document.querySelector("#passed-results");
+  try {
+    const rejected = await request("/swipes/rejected");
+    document.querySelector("#passed-count").textContent = rejected.length;
+    message.hidden = true;
+    if (!rejected.length) {
+      results.innerHTML = '<p class="empty-message">Bạn chưa bỏ qua hồ sơ nào. Hồ sơ bạn chọn Bỏ qua sẽ được lưu ở đây.</p>';
+      return;
+    }
+    const statusByProfile = new Map(rejected.map((item) => [item.profile.id, { isRejected: true }]));
+    renderProfiles(results, rejected.map((item) => item.profile), false, false, statusByProfile);
+  } catch (error) {
+    notify(message, error.message);
+  }
+}
+
+async function undoPass(event) {
+  const button = event.target.closest("[data-undo-swipe]");
+  if (!button) return;
+  button.disabled = true;
+  try {
+    await request(`/swipes/${button.dataset.undoSwipe}`, { method: "DELETE" });
+    await Promise.all([loadRejectedProfiles(), loadDiscover()]);
+    notify(document.querySelector("#passed-message"), "Đã thu hồi lượt bỏ qua. Hồ sơ sẽ xuất hiện lại trong Khám phá.", true);
+  } catch (error) {
+    notify(document.querySelector("#passed-message"), error.message);
+    button.disabled = false;
   }
 }
 
@@ -574,13 +782,12 @@ async function loadChatContacts() {
   const list = document.querySelector("#chat-contact-list");
   const status = document.querySelector("#chat-status");
   try {
-    const matches = await request("/matches");
-    chatState.contacts = matches.map((match) => match.profile);
-    document.querySelector("#match-count").textContent = matches.length;
-    document.querySelector("#chat-contact-count").textContent = matches.length;
+    const contacts = await request("/chat/contacts");
+    chatState.contacts = contacts;
+    document.querySelector("#chat-contact-count").textContent = contacts.length;
 
     if (!chatState.contacts.length) {
-      list.innerHTML = '<p class="chat-contact-empty">Khi có kết đôi, bạn có thể bắt đầu nhắn tin tại đây.</p>';
+      list.innerHTML = '<p class="chat-contact-empty">Bạn chưa có cuộc trò chuyện. Hãy thích một hồ sơ để bắt đầu nhắn tin.</p>';
       chatState.pendingUserId = null;
       clearActiveChat();
       return;
@@ -1000,7 +1207,15 @@ async function startApp() {
   document.querySelector("#photo-form").addEventListener("submit", uploadPhoto);
   document.querySelector("#photo-list").addEventListener("click", managePhoto);
   document.querySelector("#discover-results").addEventListener("click", swipe);
+  document.querySelector("#discover-pagination").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-discover-step]");
+    if (!button || button.disabled) return;
+    appState.discoverPage += Number(button.dataset.discoverStep);
+    renderDiscoverPage();
+    document.querySelector("#discover-filters").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
   document.querySelector("#matches-results").addEventListener("click", openChatFromMatch);
+  document.querySelector("#passed-results").addEventListener("click", undoPass);
   document.querySelector("#chat-contact-list").addEventListener("click", (event) => {
     const contact = event.target.closest("[data-chat-user]");
     if (contact) selectChatContact(contact.dataset.chatUser);
@@ -1052,6 +1267,17 @@ async function startApp() {
   resetPasswordForm.addEventListener("submit", submitResetPassword);
   document.querySelector("#admin-refresh").addEventListener("click", loadAdminOverview);
   document.querySelector("#admin-export").addEventListener("click", exportAdminData);
+  document.querySelector("#admin-user-form").addEventListener("submit", submitAdminUser);
+  document.querySelector("#admin-user-cancel").addEventListener("click", resetAdminUserForm);
+  document.querySelector("#admin-users").addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-admin-edit]");
+    if (editButton) {
+      editAdminUser(editButton.dataset.adminEdit);
+      return;
+    }
+    const deleteButton = event.target.closest("[data-admin-delete]");
+    if (deleteButton && !deleteButton.disabled) deleteAdminUser(deleteButton.dataset.adminDelete);
+  });
 
   const resetUrl = new URL(window.location.href);
   const resetToken = resetUrl.searchParams.get("resetToken");

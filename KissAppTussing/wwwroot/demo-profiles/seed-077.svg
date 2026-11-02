@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 360" role="img" aria-label="Ảnh đại diện minh họa 077">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d7f2ed"/><stop offset="1" stop-color="#8acdc1"/></linearGradient></defs>
+<rect width="320" height="360" fill="url(#bg)"/>
+<circle cx="259" cy="68" r="54" fill="#fff" opacity=".16"/>
+<circle cx="276" cy="300" r="78" fill="#fff" opacity=".12"/>
+<path d="M0 300 Q70 267 132 295 T320 288 V360 H0Z" fill="#fff" opacity=".12"/>
+<path d="M36 360 Q43 267 116 255 L160 278 L204 255 Q277 267 284 360Z" fill="#44745d"/>
+<path d="M132 233 H188 V284 Q160 305 132 284Z" fill="#b97858"/>
+<path d="M88 157 C74 96 112 49 164 54 C222 59 245 105 231 160 L250 281 Q222 299 203 252 L190 214 L104 228 L86 279 Q65 260 76 208 Z" fill="#a86a42"/>
+<path d="M95 147 C88 108 107 78 160 77 C213 78 232 108 225 147 L211 190 Q205 241 160 252 Q115 241 109 190Z" fill="#b97858"/>
+<ellipse cx="97" cy="174" rx="10" ry="16" fill="#b97858"/><ellipse cx="223" cy="174" rx="10" ry="16" fill="#b97858"/>
+<path d="M90 147 C87 88 119 54 164 56 C207 58 235 91 232 145 Q211 125 198 101 Q181 120 164 111 Q138 132 112 122 L101 159 Z" fill="#a86a42"/>
+<path d="M124 148 Q135 142 145 148" fill="none" stroke="#a86a42" stroke-width="4" stroke-linecap="round"/>
+<path d="M175 148 Q185 142 196 148" fill="none" stroke="#a86a42" stroke-width="4" stroke-linecap="round"/>
+<ellipse cx="135" cy="157" rx="4" ry="5" fill="#302925"/><ellipse cx="185" cy="157" rx="4" ry="5" fill="#302925"/>
+<path d="M160 164 Q154 179 159 189 Q163 193 169 189" fill="none" stroke="#ad765f" stroke-width="3" stroke-linecap="round"/>
+<path d="M145 207 Q160 221 175 207" fill="none" stroke="#a8515c" stroke-width="4" stroke-linecap="round"/>
+<g fill="none" stroke="#443b39" stroke-width="4" opacity=".88"><rect x="120" y="148" width="29" height="22" rx="9"/><rect x="171" y="148" width="29" height="22" rx="9"/><path d="M149 158 Q160 153 171 158"/></g><g fill="#9e624b" opacity=".5"><circle cx="126" cy="181" r="2"/><circle cx="135" cy="185" r="1.7"/><circle cx="194" cy="181" r="2"/><circle cx="185" cy="185" r="1.7"/></g><circle cx="94" cy="184" r="5" fill="#efc65f"/><circle cx="226" cy="184" r="5" fill="#efc65f"/>
+<path d="M147 257 Q160 266 173 257" fill="none" stroke="#fff" stroke-width="4" opacity=".8"/>
+</svg>

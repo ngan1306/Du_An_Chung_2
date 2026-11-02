@@ -29,7 +29,10 @@ internal interface IDatingService
     Task<PhotoOperationResult> SetAvatarAsync(Guid userId, Guid photoId, CancellationToken cancellationToken);
     Task<PhotoOperationResult> DeletePhotoAsync(Guid userId, Guid photoId, CancellationToken cancellationToken);
     Task<SwipeResult> SwipeAsync(Guid userId, CreateSwipeRequest request, CancellationToken cancellationToken);
+    Task<bool> UndoPassAsync(Guid userId, Guid targetUserId, CancellationToken cancellationToken);
     Task<IReadOnlyList<MatchResponse>> GetMatchesAsync(Guid userId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<LikedProfileResponse>> GetLikedProfilesAsync(Guid userId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<RejectedProfileResponse>> GetRejectedProfilesAsync(Guid userId, CancellationToken cancellationToken);
 }
 
 internal interface IJourneyService
@@ -44,6 +47,7 @@ internal interface IJourneyService
 
 internal interface IChatService
 {
+    Task<IReadOnlyList<UserProfileResponse>> GetContactsAsync(Guid userId, CancellationToken cancellationToken);
     Task<ChatMessagesResult> GetMessagesAsync(Guid userId, Guid otherUserId, CancellationToken cancellationToken);
     Task<ChatMessageResult> SendMessageAsync(Guid userId, Guid otherUserId, string? content, IFormFile? media, CancellationToken cancellationToken);
     Task<ChatMediaResult> GetMediaAsync(Guid userId, Guid messageId, CancellationToken cancellationToken);
