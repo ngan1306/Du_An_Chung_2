@@ -263,3 +263,20 @@ public sealed record JourneyCommentResponse(
 /// <summary>A comment creation request.</summary>
 /// <param name="Content">Comment text.</param>
 public sealed record CreateJourneyCommentRequest(string Content);
+
+/// <summary>Public user details for connection and conversation lists.</summary>
+public sealed record SocialUserResponse(Guid Id, string Name, string Bio, string? City, string? AvatarUrl);
+/// <summary>A connection request or accepted friendship.</summary>
+public sealed record ConnectionResponse(Guid Id, SocialUserResponse User, string Status, bool RequestedByMe, DateTimeOffset CreatedAt);
+/// <summary>A message visible to a conversation participant.</summary>
+public sealed record MessageResponse(Guid Id, Guid SenderId, string Content, DateTimeOffset SentAt, bool IsRead);
+/// <summary>A private conversation and its latest activity.</summary>
+public sealed record ConversationResponse(Guid Id, SocialUserResponse User, string? LastMessage, DateTimeOffset UpdatedAt, int UnreadCount);
+
+/// <summary>Text submitted as a private message.</summary>
+public sealed record SendMessageRequest
+{
+    /// <summary>The message content.</summary>
+    [Required, StringLength(2000, MinimumLength = 1)]
+    public required string Content { get; init; }
+}

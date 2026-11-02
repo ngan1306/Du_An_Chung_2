@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0b3826">
+  <meta name="theme-color" content="#0F766E">
   <meta name="referrer" content="no-referrer">
   <meta name="description" content="Kiss - kết nối và hẹn hò.">
   <title>Kiss | Đăng nhập</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/app.css?v=password-reset-20261026">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app.css?v=enterprise-dashboard-20261102">
   <script src="/app.js?v=password-reset-20261026" defer></script>
 </head>
 <body>
@@ -95,6 +95,8 @@
         <button class="app-nav-item" data-page="journey" type="button">Hành trình</button>
         <button class="app-nav-item" data-page="matches" type="button">Kết đôi <span id="match-count">0</span></button>
         <button class="app-nav-item" data-page="chat" type="button">Tin nhắn</button>
+        <button class="app-nav-item" data-page="connections" type="button">Kết nối <span id="connection-count">0</span></button>
+        <button class="app-nav-item" data-page="messages" type="button">Tin nhắn riêng <span id="message-count">0</span></button>
         <button class="app-nav-item" data-page="profile" type="button">Hồ sơ của tôi</button>
         <button class="app-nav-item" data-page="admin" id="admin-nav" type="button" hidden>Quản trị</button>
       </nav>
@@ -180,6 +182,21 @@
           </form>
         </section>
       </div>
+    </section>
+
+    <section id="connections-page" class="app-page" hidden>
+      <header class="page-heading"><div><p class="eyebrow">MỞ RỘNG KẾT NỐI</p><h1>Bạn bè</h1></div><p>Tìm người phù hợp và quản lý lời mời kết nối.</p></header>
+      <form id="people-search-form" class="people-search"><label class="field"><span>Tìm người dùng</span><input name="q" type="search" maxlength="100" placeholder="Nhập tên, thành phố hoặc giới thiệu"></label><button class="submit-button" type="submit">Tìm kiếm</button></form>
+      <p id="social-message" class="form-message" role="status" aria-live="polite" hidden></p>
+      <h2 class="social-section-title">Kết quả tìm kiếm</h2><div id="people-results" class="social-user-grid"></div>
+      <div class="connection-columns"><section><h2 class="social-section-title">Lời mời đã nhận</h2><div id="incoming-requests" class="social-list"></div></section><section><h2 class="social-section-title">Lời mời đã gửi</h2><div id="outgoing-requests" class="social-list"></div></section></div>
+      <h2 class="social-section-title">Bạn bè</h2><div id="friends-list" class="social-user-grid"></div>
+    </section>
+
+    <section id="messages-page" class="app-page" hidden>
+      <header class="page-heading"><div><p class="eyebrow">TRÒ CHUYỆN RIÊNG TƯ</p><h1>Tin nhắn</h1></div><p>Chỉ bạn và người đã kết nối mới xem được cuộc trò chuyện.</p></header>
+      <div class="chat-workspace"><aside class="conversation-sidebar"><h2>Cuộc trò chuyện</h2><div id="conversation-list" class="conversation-list"></div></aside><section class="chat-panel" aria-label="Cuộc trò chuyện"><header id="social-chat-heading" class="chat-heading"><div class="empty-message">Chọn một người bạn để bắt đầu trò chuyện.</div></header><div id="social-chat-messages" class="chat-messages" aria-live="polite"></div><form id="social-chat-form" class="chat-form" hidden><textarea name="content" rows="2" maxlength="2000" placeholder="Nhập tin nhắn..." required></textarea><button class="submit-button" type="submit">Gửi</button><small>Enter để gửi · Shift + Enter để xuống dòng</small></form></section></div>
+      <p id="social-chat-message" class="form-message" role="status" aria-live="polite" hidden></p>
     </section>
 
     <section id="journey-page" class="app-page journey-page" hidden>

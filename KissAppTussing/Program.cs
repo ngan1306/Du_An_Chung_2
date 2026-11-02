@@ -41,6 +41,7 @@ builder.Services.AddHostedService(serviceProvider =>
 builder.Services.AddScoped<IDatingService, DatingService>();
 builder.Services.AddScoped<IJourneyService, JourneyService>();
 builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<SocialService>();
 builder.Services
 	.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 	.AddJwtBearer(options =>
@@ -105,6 +106,7 @@ app.MapMatchEndpoints();
 app.MapJourneyEndpoints();
 app.MapChatEndpoints();
 app.MapAdminEndpoints();
+app.MapSocialEndpoints();
 
 await using (var scope = app.Services.CreateAsyncScope())
 {

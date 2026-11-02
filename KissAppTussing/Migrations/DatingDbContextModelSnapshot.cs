@@ -58,6 +58,72 @@ namespace KissAppTussing.Migrations
                     b.ToTable("ChatMessages");
                 });
 
+            modelBuilder.Entity("KissAppTussing.Models.ConnectionRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("FirstUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RequestedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SecondUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SecondUserId");
+
+                    b.HasIndex("FirstUserId", "SecondUserId")
+                        .IsUnique();
+
+                    b.HasIndex("RequestedByUserId", "Status");
+
+                    b.ToTable("ConnectionRequests");
+                });
+
+            modelBuilder.Entity("KissAppTussing.Models.Conversation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("FirstUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("FirstUserReadAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("SecondUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("SecondUserReadAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SecondUserId");
+
+                    b.HasIndex("FirstUserId", "SecondUserId")
+                        .IsUnique();
+
+                    b.ToTable("Conversations");
+                });
+
             modelBuilder.Entity("KissAppTussing.Models.DatingMatch", b =>
                 {
                     b.Property<Guid>("Id")
@@ -181,6 +247,35 @@ namespace KissAppTussing.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("JourneyPostLikes");
+                });
+
+            modelBuilder.Entity("KissAppTussing.Models.Message", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("SentAt")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SenderId");
+
+                    b.HasIndex("ConversationId", "SentAt", "Id");
+
+                    b.ToTable("Messages");
                 });
 
             modelBuilder.Entity("KissAppTussing.Models.PasswordResetToken", b =>
@@ -375,6 +470,42 @@ namespace KissAppTussing.Migrations
                     b.Navigation("Sender");
                 });
 
+            modelBuilder.Entity("KissAppTussing.Models.ConnectionRequest", b =>
+                {
+                    b.HasOne("KissAppTussing.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("FirstUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KissAppTussing.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KissAppTussing.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("SecondUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KissAppTussing.Models.Conversation", b =>
+                {
+                    b.HasOne("KissAppTussing.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("FirstUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KissAppTussing.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("SecondUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("KissAppTussing.Models.DatingMatch", b =>
                 {
                     b.HasOne("KissAppTussing.Models.User", "FirstUser")
@@ -443,6 +574,23 @@ namespace KissAppTussing.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("KissAppTussing.Models.Message", b =>
+                {
+                    b.HasOne("KissAppTussing.Models.Conversation", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KissAppTussing.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+                });
+
             modelBuilder.Entity("KissAppTussing.Models.PasswordResetToken", b =>
                 {
                     b.HasOne("KissAppTussing.Models.User", "User")
@@ -482,6 +630,11 @@ namespace KissAppTussing.Migrations
                     b.Navigation("Interest");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("KissAppTussing.Models.Conversation", b =>
+                {
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("KissAppTussing.Models.Interest", b =>

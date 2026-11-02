@@ -6,7 +6,7 @@ const resetPasswordForm = document.querySelector("#reset-password-form");
 const appView = document.querySelector("#dating-app");
 const authMessage = document.querySelector("#auth-message");
 const authButton = document.querySelector("#auth-submit");
-const appState = { token: localStorage.getItem("kiss.accessToken"), profile: null, interests: [], resetToken: null };
+const appState = { token: localStorage.getItem("kiss.accessToken"), profile: null, interests: [], resetToken: null, connections: [], conversations: [], selectedConversationId: null, chatPoll: null };
 const chatState = {
   contacts: [],
   activeUserId: null,
@@ -210,7 +210,7 @@ async function enterWorkspace() {
 }
 
 function showPage(page) {
-  for (const id of ["discover", "journey", "profile", "matches", "chat", "admin"]) {
+  for (const id of ["discover", "journey", "profile", "matches", "chat", "connections", "messages", "admin"]) {
     document.getElementById(`${id}-page`).hidden = id !== page;
   }
   document.querySelectorAll("[data-page]").forEach((button) => {
@@ -220,8 +220,11 @@ function showPage(page) {
   if (page === "profile") loadProfile();
   if (page === "journey") loadJourney();
   if (page === "matches") loadMatches();
+  if (page === "connections") loadConnections();
   if (page === "chat") loadChatContacts();
   else stopChatPolling();
+  if (page === "messages") startSocialPolling();
+  else stopSocialPolling();
   if (page === "admin") loadAdminOverview();
 }
 
@@ -265,6 +268,125 @@ async function exportAdminData() {
   } finally {
     button.disabled = false;
   }
+}
+
+function socialAvatar(user, className = "social-avatar") {
+  const initial = escapeHtml((user.name || "?").trim().charAt(0).toUpperCase());
+  return `<div class="${className}">${user.avatarUrl ? `<img src="${escapeHtml(photoUrl(user.avatarUrl))}" alt="">` : initial}</div>`;
+}
+
+function socialCard(user, action = "") {
+  return `<article class="social-user-card" data-social-user="${user.id}">${socialAvatar(user)}<div class="social-user-copy"><strong>${escapeHtml(user.name)}</strong><p>${escapeHtml([user.city, user.bio].filter(Boolean).join(" · ") || "Chưa có giới thiệu")}</p></div>${action}</article>`;
+}
+
+async function loadConnections(searchTerm) {
+  const message = document.querySelector("#social-message");
+  try {
+    const [connections, users] = await Promise.all([
+      request("/connections"),
+      searchTerm === undefined ? Promise.resolve(null) : request(`/users/search?q=${encodeURIComponent(searchTerm)}`)
+    ]);
+    appState.connections = connections;
+    const incoming = connections.filter((item) => item.status === "Pending" && !item.requestedByMe);
+    const outgoing = connections.filter((item) => item.status === "Pending" && item.requestedByMe);
+    const friends = connections.filter((item) => item.status === "Accepted");
+    document.querySelector("#connection-count").textContent = friends.length;
+    document.querySelector("#incoming-requests").innerHTML = incoming.length ? incoming.map((item) => socialCard(item.user, `<div><button class="social-action primary" data-connection-accept="${item.id}" type="button">Chấp nhận</button> <button class="social-action danger" data-connection-decline="${item.id}" type="button">Từ chối</button></div>`)).join("") : '<p class="empty-message">Bạn chưa có lời mời kết nối nào.</p>';
+    document.querySelector("#outgoing-requests").innerHTML = outgoing.length ? outgoing.map((item) => socialCard(item.user, `<button class="social-action" data-connection-cancel="${item.id}" type="button">Đã gửi · Hủy</button>`)).join("") : '<p class="empty-message">Bạn chưa gửi lời mời nào.</p>';
+    document.querySelector("#friends-list").innerHTML = friends.length ? friends.map((item) => socialCard(item.user, `<button class="social-action danger" data-connection-disconnect="${item.id}" type="button">Hủy kết nối</button>`)).join("") : '<p class="empty-message">Bạn chưa có bạn bè. Hãy tìm người để kết nối.</p>';
+    if (users) {
+      const statusByUser = new Map(connections.map((item) => [item.user.id, item]));
+      const results = users.filter((user) => !connections.some((item) => item.user.id === user.id && ["Accepted", "Pending"].includes(item.status)));
+      document.querySelector("#people-results").innerHTML = results.length ? results.map((user) => {
+        const previous = statusByUser.get(user.id);
+        const action = previous?.status === "Pending" ? '<button class="social-action" disabled>Đang chờ</button>' : `<button class="social-action primary" data-connection-request="${user.id}" type="button">Kết nối</button>`;
+        return socialCard(user, action);
+      }).join("") : '<p class="empty-message">Không tìm thấy người dùng phù hợp.</p>';
+    }
+    message.hidden = true;
+  } catch (error) { notify(message, error.message); }
+}
+
+async function manageConnection(event) {
+  const button = event.target.closest("[data-connection-request], [data-connection-accept], [data-connection-decline], [data-connection-cancel], [data-connection-disconnect]");
+  if (!button) return;
+  if (button.hasAttribute("data-connection-disconnect") && !window.confirm("Bạn có chắc muốn hủy kết nối này? Lịch sử tin nhắn sẽ được giữ lại nhưng không thể tiếp tục nhắn tin.")) return;
+  button.disabled = true;
+  try {
+    if (button.dataset.connectionRequest) await request(`/connections/${button.dataset.connectionRequest}`, { method: "POST" });
+    if (button.dataset.connectionAccept) await request(`/connections/${button.dataset.connectionAccept}/accept`, { method: "POST" });
+    if (button.dataset.connectionDecline) await request(`/connections/${button.dataset.connectionDecline}/decline`, { method: "POST" });
+    if (button.dataset.connectionCancel) await request(`/connections/${button.dataset.connectionCancel}`, { method: "DELETE" });
+    if (button.dataset.connectionDisconnect) await request(`/connections/${button.dataset.connectionDisconnect}/disconnect`, { method: "POST" });
+    await loadConnections(document.querySelector("#people-search-form").elements.q.value.trim());
+    if (button.hasAttribute("data-connection-accept") || button.hasAttribute("data-connection-disconnect")) await loadConversations();
+  } catch (error) { notify(document.querySelector("#social-message"), error.message); button.disabled = false; }
+}
+
+function renderConversations() {
+  const list = document.querySelector("#conversation-list");
+  const unreadTotal = appState.conversations.reduce((sum, item) => sum + item.unreadCount, 0);
+  document.querySelector("#message-count").textContent = unreadTotal;
+  list.innerHTML = appState.conversations.length ? appState.conversations.map((item) => `<button class="conversation-item ${item.id === appState.selectedConversationId ? "is-active" : ""}" data-open-conversation="${item.id}" type="button">${socialAvatar(item.user)}<span class="conversation-copy"><strong>${escapeHtml(item.user.name)}</strong><span>${escapeHtml(item.lastMessage || "Bắt đầu cuộc trò chuyện")}</span></span>${item.unreadCount ? `<span class="unread-count">${item.unreadCount}</span>` : ""}</button>`).join("") : '<p class="chat-empty">Bạn chưa có cuộc trò chuyện. Hãy kết nối với bạn bè trước.</p>';
+}
+
+async function loadConversations() {
+  try {
+    appState.conversations = await request("/conversations");
+    if (!appState.selectedConversationId || !appState.conversations.some((item) => item.id === appState.selectedConversationId)) {
+      appState.selectedConversationId = appState.conversations[0]?.id || null;
+    }
+    renderConversations();
+    if (appState.selectedConversationId) await loadSocialMessages();
+    else {
+      document.querySelector("#social-chat-heading").innerHTML = '<div class="chat-empty">Chọn một người bạn để bắt đầu trò chuyện.</div>';
+      document.querySelector("#social-chat-messages").innerHTML = '<p class="chat-empty">Tin nhắn của bạn sẽ xuất hiện ở đây.</p>';
+      document.querySelector("#social-chat-form").hidden = true;
+    }
+  } catch (error) { notify(document.querySelector("#social-chat-message"), error.message); }
+}
+
+async function loadSocialMessages() {
+  const selected = appState.conversations.find((item) => item.id === appState.selectedConversationId);
+  if (!selected) return;
+  document.querySelector("#social-chat-heading").innerHTML = socialCard(selected.user);
+  document.querySelector("#social-chat-form").hidden = false;
+  try {
+    const messages = await request(`/conversations/${selected.id}/messages?limit=50`);
+    const container = document.querySelector("#social-chat-messages");
+    container.innerHTML = messages.length ? messages.map((item) => `<article class="message-bubble ${item.senderId === appState.profile.id ? "is-mine" : ""}">${escapeHtml(item.content)}<time>${new Date(item.sentAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}${item.senderId === appState.profile.id ? (item.isRead ? " · Đã đọc" : " · Đã gửi") : ""}</time></article>`).join("") : '<p class="chat-empty">Chưa có tin nhắn. Hãy gửi lời chào đầu tiên!</p>';
+    container.scrollTop = container.scrollHeight;
+    const current = appState.conversations.find((item) => item.id === selected.id);
+    if (current) current.unreadCount = 0;
+    renderConversations();
+  } catch (error) { notify(document.querySelector("#social-chat-message"), error.message); }
+}
+
+function startSocialPolling() {
+  stopSocialPolling();
+  loadConversations();
+  appState.chatPoll = window.setInterval(loadConversations, 4000);
+}
+
+function stopSocialPolling() {
+  if (appState.chatPoll) window.clearInterval(appState.chatPoll);
+  appState.chatPoll = null;
+}
+
+async function submitSocialMessage(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const input = form.elements.content;
+  const content = input.value.trim();
+  if (!content || !appState.selectedConversationId) return;
+  const button = form.querySelector("button");
+  button.disabled = true;
+  try {
+    await request(`/conversations/${appState.selectedConversationId}/messages`, { method: "POST", body: JSON.stringify({ content }) });
+    input.value = "";
+    await loadConversations();
+  } catch (error) { notify(document.querySelector("#social-chat-message"), error.message); }
+  finally { button.disabled = false; }
 }
 
 function notify(element, text, success = false) {
@@ -853,6 +975,7 @@ async function deleteJourneyPost(event) {
 
 function logout() {
   stopChatPolling();
+  stopSocialPolling();
   clearChatMediaUrls();
   chatState.contacts = [];
   chatState.activeUserId = null;
@@ -904,6 +1027,22 @@ async function startApp() {
   document.querySelector("#journey-media").addEventListener("change", updateJourneyPreview);
   document.querySelector("#journey-refresh").addEventListener("click", loadJourney);
   document.querySelector("#journey-feed").addEventListener("click", deleteJourneyPost);
+  document.querySelector("#people-search-form").addEventListener("submit", (event) => { event.preventDefault(); loadConnections(event.currentTarget.elements.q.value.trim()); });
+  document.querySelector("#connections-page").addEventListener("click", manageConnection);
+  document.querySelector("#conversation-list").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-open-conversation]");
+    if (!button) return;
+    appState.selectedConversationId = button.dataset.openConversation;
+    renderConversations();
+    loadSocialMessages();
+  });
+  document.querySelector("#social-chat-form").addEventListener("submit", submitSocialMessage);
+  document.querySelector("#social-chat-form textarea").addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      event.currentTarget.form.requestSubmit();
+    }
+  });
   document.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => showPage(button.dataset.page)));
   document.querySelector("#logout-button").addEventListener("click", logout);
   document.querySelector("#forgot-password-link").addEventListener("click", showForgotPassword);
