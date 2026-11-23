@@ -93,9 +93,9 @@
       <nav class="app-nav" aria-label="Điều hướng">
         <button class="app-nav-item is-active" data-page="discover" type="button">Khám phá</button>
         <button class="app-nav-item" data-page="journey" type="button">Hành trình</button>
-        <button class="app-nav-item" data-page="matches" type="button">Bạn bè <span id="match-count">0</span></button>
+        <button class="app-nav-item" data-page="matches" type="button">Lượt thích <span id="match-count">0</span></button>
         <button class="app-nav-item" data-page="chat" type="button">Tin nhắn</button>
-        <button class="app-nav-item" data-page="connections" type="button">Kết nối <span id="connection-count">0</span></button>
+        <button class="app-nav-item" data-page="connections" type="button">Bạn bè <span id="connection-count">0</span></button>
         <button class="app-nav-item" data-page="passed" type="button">Từ chối <span id="passed-count">0</span></button>
         <button class="app-nav-item" data-page="notifications" type="button">Thông báo <span id="notification-count">0</span></button>
         <button class="app-nav-item" data-page="dates" type="button">Lịch hẹn</button>
@@ -245,7 +245,7 @@
     </section>
 
     <section id="matches-page" class="app-page" hidden>
-      <header class="page-heading"><div><p class="eyebrow">HỒ SƠ BẠN ĐÃ THÍCH</p><h1>Bạn bè</h1></div><p>Hồ sơ bạn đã thích sẽ hiện ở đây. Có thể nhắn tin khi hai bạn cùng thích nhau.</p></header>
+      <header class="page-heading"><div><p class="eyebrow">HỒ SƠ BẠN ĐÃ THÍCH</p><h1>Lượt thích</h1></div><p>Đây là hồ sơ bạn đã thích. Bạn bè đã xác nhận kết nối nằm trong mục Bạn bè.</p></header>
       <div id="matches-results" class="profile-grid"></div>
     </section>
 
@@ -298,12 +298,13 @@
     </section>
 
     <section id="connections-page" class="app-page" hidden>
-      <header class="page-heading"><div><p class="eyebrow">MỞ RỘNG KẾT NỐI</p><h1>Bạn bè</h1></div><p>Tìm người phù hợp và quản lý lời mời kết nối.</p></header>
+      <header class="page-heading"><div><p class="eyebrow">KẾT NỐI HAI CHIỀU</p><h1>Bạn bè</h1></div><p>Danh sách này hiển thị giống nhau ở cả hai tài khoản sau khi lời mời được chấp nhận.</p></header>
+      <button id="connections-refresh" class="quiet-button" type="button">Làm mới danh sách</button>
       <form id="people-search-form" class="people-search"><label class="field"><span>Tìm người dùng</span><input name="q" type="search" maxlength="100" placeholder="Nhập tên, thành phố hoặc giới thiệu"></label><button class="submit-button" type="submit">Tìm kiếm</button></form>
       <p id="social-message" class="form-message" role="status" aria-live="polite" hidden></p>
       <h2 class="social-section-title">Kết quả tìm kiếm</h2><div id="people-results" class="social-user-grid"></div>
       <div class="connection-columns"><section><h2 class="social-section-title">Lời mời đã nhận</h2><div id="incoming-requests" class="social-list"></div></section><section><h2 class="social-section-title">Lời mời đã gửi</h2><div id="outgoing-requests" class="social-list"></div></section></div>
-      <h2 class="social-section-title">Bạn bè</h2><div id="friends-list" class="social-user-grid"></div>
+      <h2 class="social-section-title">Bạn bè đã kết nối</h2><div id="friends-list" class="social-user-grid"></div>
     </section>
 
     <section id="messages-page" class="app-page" hidden>

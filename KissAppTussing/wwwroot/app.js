@@ -528,7 +528,7 @@ async function loadConnections(searchTerm) {
     const friends = connections.filter((item) => item.status === "Accepted");
     document.querySelector("#connection-count").textContent = friends.length;
     document.querySelector("#incoming-requests").innerHTML = incoming.length ? incoming.map((item) => socialCard(item.user, `<div><button class="social-action primary" data-connection-accept="${item.id}" type="button">Chấp nhận</button> <button class="social-action danger" data-connection-decline="${item.id}" type="button">Từ chối</button></div>`)).join("") : '<p class="empty-message">Bạn chưa có lời mời kết nối nào.</p>';
-    document.querySelector("#outgoing-requests").innerHTML = outgoing.length ? outgoing.map((item) => socialCard(item.user, `<button class="social-action" data-connection-cancel="${item.id}" type="button">Đã gửi · Hủy</button>`)).join("") : '<p class="empty-message">Bạn chưa gửi lời mời nào.</p>';
+    document.querySelector("#outgoing-requests").innerHTML = outgoing.length ? outgoing.map((item) => socialCard(item.user, `<button class="social-action" data-connection-cancel="${item.id}" type="button">Chờ chấp nhận · Hủy</button>`)).join("") : '<p class="empty-message">Bạn chưa gửi lời mời nào.</p>';
     document.querySelector("#friends-list").innerHTML = friends.length ? friends.map((item) => socialCard(item.user, `<button class="social-action danger" data-connection-disconnect="${item.id}" type="button">Hủy kết nối</button>`)).join("") : '<p class="empty-message">Bạn chưa có bạn bè. Hãy tìm người để kết nối.</p>';
     if (users) {
       const statusByUser = new Map(connections.map((item) => [item.user.id, item]));
@@ -2025,6 +2025,7 @@ async function startApp() {
     if (button) unblockUser(button.dataset.unblockUser);
   });
   document.querySelector("#people-search-form").addEventListener("submit", (event) => { event.preventDefault(); loadConnections(event.currentTarget.elements.q.value.trim()); });
+  document.querySelector("#connections-refresh").addEventListener("click", () => loadConnections());
   document.querySelector("#connections-page").addEventListener("click", manageConnection);
   document.querySelector("#conversation-list").addEventListener("click", (event) => {
     const button = event.target.closest("[data-open-conversation]");
