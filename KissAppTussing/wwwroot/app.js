@@ -577,8 +577,15 @@ function renderDiscoverPage() {
   const end = start + visibleProfiles.length;
   renderProfiles(results, visibleProfiles, true);
   count.textContent = `Hồ sơ ${start + 1}–${end} trên ${profiles.length}`;
-  pagination.hidden = pageCount <= 1;
+  pagination.hidden = false;
   pagination.innerHTML = `
+    <label class="discover-page-size">Mỗi trang
+      <select data-discover-page-size aria-label="Số người hiển thị mỗi trang">
+        <option value="10" ${appState.discoverPageSize === 10 ? "selected" : ""}>10 người</option>
+        <option value="20" ${appState.discoverPageSize === 20 ? "selected" : ""}>20 người</option>
+        <option value="30" ${appState.discoverPageSize === 30 ? "selected" : ""}>30 người</option>
+      </select>
+    </label>
     <button class="discover-page-button" type="button" data-discover-step="-1" ${appState.discoverPage === 1 ? "disabled" : ""}>Trang trước</button>
     <span>Trang ${appState.discoverPage} / ${pageCount}</span>
     <button class="discover-page-button" type="button" data-discover-step="1" ${appState.discoverPage === pageCount ? "disabled" : ""}>Trang sau</button>`;
@@ -1213,6 +1220,13 @@ async function startApp() {
     appState.discoverPage += Number(button.dataset.discoverStep);
     renderDiscoverPage();
     document.querySelector("#discover-filters").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  document.querySelector("#discover-pagination").addEventListener("change", (event) => {
+    const select = event.target.closest("[data-discover-page-size]");
+    if (!select) return;
+    appState.discoverPageSize = Number(select.value);
+    appState.discoverPage = 1;
+    renderDiscoverPage();
   });
   document.querySelector("#matches-results").addEventListener("click", openChatFromMatch);
   document.querySelector("#passed-results").addEventListener("click", undoPass);
