@@ -14,6 +14,18 @@ public sealed record AdminOverviewResponse(
 
 /// <summary>A user row shown in the owner dashboard.</summary>
 public sealed record AdminUserSummary(Guid Id, string Name, string Email, DateTimeOffset CreatedAt);
+public sealed record AdminAccessResponse(string Role, bool CanModerate, bool IsOwner);
+public sealed record AdminAuditLogResponse(Guid Id, Guid AdminUserId, string AdminName, string Action, string TargetType, Guid? TargetId, string Details, DateTimeOffset CreatedAt);
+
+public sealed record AdminSystemNotificationRequest
+{
+    [Required, StringLength(120, MinimumLength = 2)]
+    public required string Title { get; init; }
+    [Required, StringLength(500, MinimumLength = 2)]
+    public required string Body { get; init; }
+}
+
+public sealed record AdminDailyAnalytics(DateOnly Date, int NewUsers, int Swipes, int Matches);
 
 /// <summary>A user account visible to an authorized administrator.</summary>
 public sealed record AdminManagedUser(
@@ -27,7 +39,8 @@ public sealed record AdminManagedUser(
     string? Occupation,
     string? Education,
     string LookingFor,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string Role = "User");
 
 /// <summary>Profile and login details for an administrator-created account.</summary>
 public sealed record AdminCreateUserRequest
@@ -70,6 +83,9 @@ public sealed record AdminCreateUserRequest
     /// <summary>The kind of connection the user is looking for.</summary>
     [Required, RegularExpression("^(Friendship|Dating|Relationship)$")]
     public required string LookingFor { get; init; }
+
+    [RegularExpression("^(User|Admin|Moderator|Support)$")]
+    public string Role { get; init; } = "User";
 }
 
 /// <summary>Updated account details; leave NewPassword empty to keep the current password.</summary>
@@ -113,6 +129,9 @@ public sealed record AdminUpdateUserRequest
     /// <summary>The kind of connection the user is looking for.</summary>
     [Required, RegularExpression("^(Friendship|Dating|Relationship)$")]
     public required string LookingFor { get; init; }
+
+    [RegularExpression("^(User|Admin|Moderator|Support)$")]
+    public string Role { get; init; } = "User";
 }
 
 /// <summary>Exportable application data. Password hashes and private chat contents are excluded.</summary>

@@ -3,6 +3,7 @@ using System.Security.Claims;
 using KissAppTussing.Contracts;
 using KissAppTussing.Data;
 using KissAppTussing.Models;
+using KissAppTussing.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +15,7 @@ internal static class AdminEndpoints
 {
     public static IEndpointRouteBuilder MapAdminEndpoints(this IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapGet("/api/admin/access", GetAccessAsync).RequireAuthorization("AdminStaff");
         var admin = endpoints.MapGroup("/api/admin")
             .RequireAuthorization("OwnerAdmin");
 
@@ -41,6 +43,10 @@ internal static class AdminEndpoints
             .WithName("DeleteAdminUser")
             .WithSummary("Delete a user account and its related social data");
 
+        admin.MapGet("/audit", GetAuditLogAsync);
+        admin.MapPost("/notifications", SendSystemNotificationAsync);
+        admin.MapGet("/analytics", GetAnalyticsAsync);
+
         return endpoints;
     }
 
@@ -63,7 +69,8 @@ internal static class AdminEndpoints
                 user.Occupation,
                 user.Education,
                 user.LookingFor,
-                user.CreatedAt))
+                user.CreatedAt,
+                user.Role))
             .ToListAsync(cancellationToken);
         return TypedResults.Ok<IReadOnlyList<AdminManagedUser>>(users);
     }
@@ -72,6 +79,7 @@ internal static class AdminEndpoints
         AdminCreateUserRequest request,
         DatingDbContext database,
         IPasswordHasher<User> passwordHasher,
+        ClaimsPrincipal principal,
         CancellationToken cancellationToken)
     {
         var errors = ValidateRequest(request);
@@ -101,11 +109,13 @@ internal static class AdminEndpoints
             Occupation = NormalizeOptionalText(request.Occupation),
             Education = NormalizeOptionalText(request.Education),
             LookingFor = request.LookingFor,
+            Role = request.Role,
             TermsAcceptedAt = null
         };
         user.PasswordHash = passwordHasher.HashPassword(user, request.Password);
 
         database.Users.Add(user);
+        AdminAuditWriter.Add(database, principal, "UserCreated", "User", user.Id, $"Created account {user.Email}.");
         await database.SaveChangesAsync(cancellationToken);
         return TypedResults.Created($"/api/admin/users/{user.Id}", ToAdminManagedUser(user));
     }
@@ -115,6 +125,7 @@ internal static class AdminEndpoints
         AdminUpdateUserRequest request,
         DatingDbContext database,
         IPasswordHasher<User> passwordHasher,
+        ClaimsPrincipal principal,
         CancellationToken cancellationToken)
     {
         var errors = ValidateRequest(request);
@@ -148,6 +159,7 @@ internal static class AdminEndpoints
         user.Occupation = NormalizeOptionalText(request.Occupation);
         user.Education = NormalizeOptionalText(request.Education);
         user.LookingFor = request.LookingFor;
+        user.Role = request.Role;
         if (!string.IsNullOrEmpty(request.NewPassword))
         {
             user.PasswordHash = passwordHasher.HashPassword(user, request.NewPassword);
@@ -156,6 +168,7 @@ internal static class AdminEndpoints
                 .ExecuteDeleteAsync(cancellationToken);
         }
 
+        AdminAuditWriter.Add(database, principal, "UserUpdated", "User", userId, $"Updated account {user.Email}; role={user.Role}.");
         await database.SaveChangesAsync(cancellationToken);
         return TypedResults.Ok(ToAdminManagedUser(user));
     }
@@ -188,12 +201,22 @@ internal static class AdminEndpoints
             .Select(conversation => conversation.Id)
             .ToListAsync(cancellationToken);
 
+        var ownedPostIds = database.JourneyPosts.Where(post => post.UserId == userId).Select(post => post.Id);
+        await database.JourneyComments.Where(comment => comment.ParentCommentId != null
+                && (comment.ParentComment!.UserId == userId || ownedPostIds.Contains(comment.ParentComment.PostId)))
+            .ExecuteUpdateAsync(update => update.SetProperty(comment => comment.ParentCommentId, (Guid?)null), cancellationToken);
         await database.JourneyPostLikes.Where(like => like.UserId == userId).ExecuteDeleteAsync(cancellationToken);
-        await database.JourneyComments.Where(comment => comment.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await database.JourneyComments.Where(comment => comment.UserId == userId || ownedPostIds.Contains(comment.PostId)).ExecuteDeleteAsync(cancellationToken);
         await database.JourneyPosts.Where(post => post.UserId == userId).ExecuteDeleteAsync(cancellationToken);
         await database.Swipes.Where(swipe => swipe.FromUserId == userId || swipe.ToUserId == userId).ExecuteDeleteAsync(cancellationToken);
         await database.Matches.Where(match => match.FirstUserId == userId || match.SecondUserId == userId).ExecuteDeleteAsync(cancellationToken);
         await database.ChatMessages.Where(message => message.SenderId == userId || message.RecipientId == userId).ExecuteDeleteAsync(cancellationToken);
+        await database.DateReviews.Where(review => review.ReviewerUserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await database.DateInvitations.Where(invitation => invitation.OrganizerUserId == userId || invitation.RecipientUserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await database.UserBlocks.Where(block => block.BlockerUserId == userId || block.BlockedUserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await database.EventAttendances.Where(row => row.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await database.CommunityEvents.Where(item => item.CreatorUserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await database.ContentReports.Where(report => report.ReporterUserId == userId || (report.TargetType == "User" && report.TargetId == userId)).ExecuteDeleteAsync(cancellationToken);
         await database.ConnectionRequests
             .Where(connection => connection.FirstUserId == userId || connection.SecondUserId == userId || connection.RequestedByUserId == userId)
             .ExecuteDeleteAsync(cancellationToken);
@@ -213,6 +236,8 @@ internal static class AdminEndpoints
             return TypedResults.Problem("Không tìm thấy tài khoản.", statusCode: StatusCodes.Status404NotFound);
         }
 
+        AdminAuditWriter.Add(database, httpContext.User, "UserDeleted", "User", userId, $"Deleted account {userId}.");
+        await database.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         DeleteUserUploads(environment, userId, logger);
         return TypedResults.NoContent();
@@ -290,7 +315,89 @@ internal static class AdminEndpoints
         user.Occupation,
         user.Education,
         user.LookingFor,
-        user.CreatedAt);
+        user.CreatedAt,
+        user.Role);
+
+    private static async Task<Ok<IReadOnlyList<AdminAuditLogResponse>>> GetAuditLogAsync(
+        DatingDbContext database,
+        CancellationToken cancellationToken)
+    {
+        var rows = await database.AdminAuditLogs.AsNoTracking()
+            .OrderByDescending(item => item.CreatedAt)
+            .Take(200)
+            .Select(item => new AdminAuditLogResponse(item.Id, item.AdminUserId,
+                database.Users.Where(user => user.Id == item.AdminUserId).Select(user => user.Name).FirstOrDefault() ?? "Tài khoản đã xóa",
+                item.Action, item.TargetType, item.TargetId, item.Details, item.CreatedAt))
+            .ToListAsync(cancellationToken);
+        return TypedResults.Ok<IReadOnlyList<AdminAuditLogResponse>>(rows);
+    }
+
+    private static async Task<Ok<IReadOnlyList<AdminDailyAnalytics>>> GetAnalyticsAsync(
+        DatingDbContext database,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var start = new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, TimeSpan.Zero).AddDays(-29);
+        var userDates = await database.Users.AsNoTracking().Where(item => item.CreatedAt >= start)
+            .Select(item => item.CreatedAt).ToListAsync(cancellationToken);
+        var swipeDates = await database.Swipes.AsNoTracking().Where(item => item.CreatedAt >= start)
+            .Select(item => item.CreatedAt).ToListAsync(cancellationToken);
+        var matchDates = await database.Matches.AsNoTracking().Where(item => item.MatchedAt >= start)
+            .Select(item => item.MatchedAt).ToListAsync(cancellationToken);
+        var rows = Enumerable.Range(0, 30).Select(offset =>
+        {
+            var dateTime = start.AddDays(offset);
+            var date = DateOnly.FromDateTime(dateTime.UtcDateTime);
+            return new AdminDailyAnalytics(date,
+                userDates.Count(value => value.UtcDateTime.Date == dateTime.UtcDateTime.Date),
+                swipeDates.Count(value => value.UtcDateTime.Date == dateTime.UtcDateTime.Date),
+                matchDates.Count(value => value.UtcDateTime.Date == dateTime.UtcDateTime.Date));
+        }).ToArray();
+        return TypedResults.Ok<IReadOnlyList<AdminDailyAnalytics>>(rows);
+    }
+
+    private static async Task<IResult> SendSystemNotificationAsync(
+        AdminSystemNotificationRequest request,
+        DatingDbContext database,
+        ClaimsPrincipal principal,
+        CancellationToken cancellationToken)
+    {
+        var userIds = await database.Users.AsNoTracking().Where(user => !user.IsSuspended)
+            .Select(user => user.Id).ToListAsync(cancellationToken);
+        var sentCount = 0;
+        foreach (var batch in userIds.Chunk(500))
+        {
+            database.UserNotifications.AddRange(batch.Select(userId => new UserNotification
+            {
+                UserId = userId,
+                Type = "System",
+                Title = request.Title.Trim(),
+                Body = request.Body.Trim()
+            }));
+            if (sentCount == 0)
+                AdminAuditWriter.Add(database, principal, "AnnouncementSent", "Users", null, $"Sent system notice to {userIds.Count} accounts.");
+            await database.SaveChangesAsync(cancellationToken);
+            sentCount += batch.Length;
+        }
+        if (userIds.Count == 0)
+        {
+            AdminAuditWriter.Add(database, principal, "AnnouncementSent", "Users", null, "No active users received the system notice.");
+            await database.SaveChangesAsync(cancellationToken);
+        }
+        return TypedResults.Ok(new { recipientCount = sentCount });
+    }
+
+    private static IResult GetAccessAsync(ClaimsPrincipal principal, IConfiguration configuration)
+    {
+        var role = principal.FindFirst(ClaimTypes.Role)?.Value ?? "User";
+        var configuredAdminIds = configuration.GetSection("Admin:UserIds").Get<Guid[]>() ?? [];
+        var isOwner = Guid.TryParse(principal.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId)
+            && configuredAdminIds.Contains(userId);
+        return TypedResults.Ok(new AdminAccessResponse(
+            role,
+            isOwner || role is "Admin" or "Moderator",
+            isOwner));
+    }
 
     private static async Task<Ok<AdminOverviewResponse>> GetOverviewAsync(
         DatingDbContext database,

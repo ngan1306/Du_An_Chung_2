@@ -50,7 +50,7 @@ internal static class JourneyEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        return endpoints;
+        return endpoints.MapStoryEndpoints();
     }
 
     private static async Task<Ok<IReadOnlyList<JourneyPostResponse>>> GetFeedAsync(
@@ -157,7 +157,7 @@ internal static class JourneyEndpoints
     {
         try
         {
-            var result = await journeyService.AddCommentAsync(CurrentUser.GetId(principal), postId, request.Content, cancellationToken);
+            var result = await journeyService.AddCommentAsync(CurrentUser.GetId(principal), postId, request.Content, request.ParentCommentId, cancellationToken);
             return TypedResults.Ok(result);
         }
         catch (KeyNotFoundException)
@@ -178,4 +178,30 @@ internal static class JourneyEndpoints
             });
         }
     }
+
+    private static IEndpointRouteBuilder MapStoryEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        var stories = endpoints.MapGroup("/api/stories").RequireAuthorization();
+        stories.MapGet("", GetStoriesAsync);
+        stories.MapPost("", CreateStoryAsync);
+        stories.MapDelete("/{storyId:guid}", DeleteStoryAsync);
+        return endpoints;
+    }
+
+    private static async Task<Ok<IReadOnlyList<StoryResponse>>> GetStoriesAsync(
+        System.Security.Claims.ClaimsPrincipal principal, IJourneyService service, CancellationToken cancellationToken) =>
+        TypedResults.Ok(await service.GetStoriesAsync(CurrentUser.GetId(principal), cancellationToken));
+
+    private static async Task<Results<Created<StoryResponse>, BadRequest>> CreateStoryAsync(
+        CreateStoryRequest request, System.Security.Claims.ClaimsPrincipal principal, IJourneyService service, CancellationToken cancellationToken)
+    {
+        var story = await service.CreateStoryAsync(CurrentUser.GetId(principal), request.Content, cancellationToken);
+        return story is null ? TypedResults.BadRequest() : TypedResults.Created($"/api/stories/{story.Id}", story);
+    }
+
+    private static async Task<Results<NoContent, NotFound>> DeleteStoryAsync(
+        Guid storyId, System.Security.Claims.ClaimsPrincipal principal, IJourneyService service, CancellationToken cancellationToken) =>
+        await service.DeleteStoryAsync(CurrentUser.GetId(principal), storyId, cancellationToken)
+            ? TypedResults.NoContent()
+            : TypedResults.NotFound();
 }

@@ -67,6 +67,36 @@ public sealed record ResetPasswordRequest
     public required string NewPassword { get; init; }
 }
 
+/// <summary>Payload for changing a password while signed in.</summary>
+public sealed record ChangePasswordRequest
+{
+    [Required, StringLength(128)]
+    public required string CurrentPassword { get; init; }
+
+    [Required, MinLength(8), StringLength(128)]
+    public required string NewPassword { get; init; }
+}
+
+/// <summary>Privacy controls for the signed-in user's public profile.</summary>
+public sealed record UpdatePrivacyRequest
+{
+    public bool HideAge { get; init; }
+    public bool HideCity { get; init; }
+    public bool HideOccupation { get; init; }
+    public bool HideEducation { get; init; }
+    public bool IsIncognito { get; init; }
+}
+
+/// <summary>GPS coordinates explicitly shared by the signed-in user for distance filtering.</summary>
+public sealed record UpdateLocationRequest
+{
+    [Range(-90, 90)]
+    public double Latitude { get; init; }
+
+    [Range(-180, 180)]
+    public double Longitude { get; init; }
+}
+
 /// <summary>Payload for updating the signed-in user's profile.</summary>
 public sealed record UpdateProfileRequest
 {
@@ -118,6 +148,8 @@ public sealed record CreateSwipeRequest
 
     /// <summary>True to like the profile; false to pass.</summary>
     public bool IsLike { get; init; }
+
+    public bool IsSuperLike { get; init; }
 }
 
 /// <summary>Public profile information visible to other users.</summary>
@@ -136,7 +168,7 @@ public sealed record CreateSwipeRequest
 public sealed record UserProfileResponse(
     Guid Id,
     string Name,
-    DateOnly BirthDate,
+    DateOnly? BirthDate,
     string Bio,
     string Gender,
     string? City,
@@ -145,7 +177,73 @@ public sealed record UserProfileResponse(
     string LookingFor,
     IReadOnlyList<ProfilePhotoResponse> Photos,
     IReadOnlyList<InterestResponse> Interests,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    double? DistanceKm = null,
+    bool IsOnline = false);
+
+public sealed record PrivacySettingsResponse(bool HideAge, bool HideCity, bool HideOccupation, bool HideEducation, bool IsIncognito);
+public sealed record UserSessionResponse(Guid Id, string DeviceName, DateTimeOffset CreatedAt, DateTimeOffset LastSeenAt, bool IsCurrent);
+
+public sealed record EmailVerificationRequest
+{
+    [Required, StringLength(6, MinimumLength = 6), RegularExpression("^[0-9]{6}$")]
+    public required string Code { get; init; }
+}
+
+public sealed record EmailVerificationStatusResponse(bool IsVerified, DateTimeOffset? VerifiedAt);
+
+public sealed record UserNotificationResponse(Guid Id, string Type, string Title, string Body, Guid? RelatedId, DateTimeOffset CreatedAt, DateTimeOffset? ReadAt);
+public sealed record NotificationPreferencesRequest(bool LikeEnabled, bool MatchEnabled, bool ChatEnabled, bool CommentEnabled, bool DateEnabled);
+public sealed record NotificationPreferencesResponse(bool LikeEnabled, bool MatchEnabled, bool ChatEnabled, bool CommentEnabled, bool DateEnabled);
+
+public sealed record CreateDateInvitationRequest
+{
+    [Required, StringLength(120, MinimumLength = 2)]
+    public required string VenueName { get; init; }
+
+    [StringLength(300)]
+    public string? VenueAddress { get; init; }
+
+    [Url, StringLength(500)]
+    public string? VenueUrl { get; init; }
+
+    public required DateTimeOffset StartsAt { get; init; }
+
+    [StringLength(500)]
+    public string Message { get; init; } = string.Empty;
+
+    public required Guid RecipientUserId { get; init; }
+}
+
+public sealed record DateReviewRequest
+{
+    [Range(1, 5)]
+    public int Rating { get; init; }
+
+    [StringLength(500)]
+    public string Comment { get; init; } = string.Empty;
+}
+
+public sealed record DateReviewResponse(Guid Id, Guid ReviewerUserId, string ReviewerName, int Rating, string Comment, DateTimeOffset CreatedAt);
+public sealed record DateInvitationResponse(
+    Guid Id, Guid OtherUserId, string OtherUserName, bool IsOrganizer, string VenueName, string? VenueAddress,
+    string? VenueUrl, DateTimeOffset StartsAt, string Message, string Status, DateTimeOffset CreatedAt,
+    bool HasReviewed, IReadOnlyList<DateReviewResponse> Reviews);
+
+public sealed record CreateContentReportRequest
+{
+    [Required, StringLength(500, MinimumLength = 2)]
+    public required string Reason { get; init; }
+}
+
+public sealed record ContentReportResponse(Guid Id, string TargetType, Guid TargetId, string Reason, string Status, DateTimeOffset CreatedAt);
+public sealed record AdminContentReportResponse(Guid Id, Guid ReporterUserId, string ReporterName, string TargetType, Guid TargetId, string Reason, string Status, DateTimeOffset CreatedAt, string? TargetPreview = null);
+public sealed record UpdateAdminReportRequest
+{
+    [Required, RegularExpression("^(Resolved|Dismissed)$")]
+    public required string Status { get; init; }
+    public bool HideTarget { get; init; }
+}
 
 /// <summary>A photo shown on a dating profile.</summary>
 /// <param name="Id">The photo identifier.</param>
@@ -179,7 +277,8 @@ public sealed record SwipeResponse(
     Guid TargetUserId,
     bool IsLike,
     bool IsMatch,
-    Guid? MatchId);
+    Guid? MatchId,
+    bool IsSuperLike = false);
 
 /// <summary>A match and the other user's profile.</summary>
 /// <param name="Id">The match identifier.</param>
@@ -197,7 +296,9 @@ public sealed record MatchResponse(
 public sealed record LikedProfileResponse(
     UserProfileResponse Profile,
     DateTimeOffset SwipedAt,
-    bool IsMutualLike);
+    bool IsMutualLike,
+    Guid? MatchId = null,
+    bool IsUnmatched = false);
 
 /// <summary>A profile the signed-in user passed on.</summary>
 /// <param name="Profile">The profile that was passed on.</param>
@@ -223,7 +324,10 @@ public sealed record ChatMessageResponse(
     string? MediaUrl,
     string? MediaType,
     DateTimeOffset SentAt,
-    bool IsMine);
+    bool IsMine,
+    bool IsRead,
+    bool IsRevoked,
+    bool CanRecall);
 
 /// <summary>A journey post shown in the authenticated feed.</summary>
 /// <param name="Id">The post identifier.</param>
@@ -274,11 +378,33 @@ public sealed record JourneyCommentResponse(
     Guid UserId,
     string AuthorName,
     string Content,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? ParentCommentId = null);
 
 /// <summary>A comment creation request.</summary>
 /// <param name="Content">Comment text.</param>
-public sealed record CreateJourneyCommentRequest(string Content);
+public sealed record CreateJourneyCommentRequest(string Content, Guid? ParentCommentId = null);
+
+public sealed record StoryResponse(Guid Id, Guid UserId, string AuthorName, string? AuthorPhotoUrl, string Content, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, bool IsMine);
+public sealed record CreateStoryRequest
+{
+    [Required, StringLength(500, MinimumLength = 1)]
+    public required string Content { get; init; }
+}
+
+public sealed record CreateCommunityEventRequest
+{
+    [Required, StringLength(120, MinimumLength = 2)]
+    public required string Name { get; init; }
+    [StringLength(1000)]
+    public string Description { get; init; } = string.Empty;
+    [Required, StringLength(160, MinimumLength = 2)]
+    public required string VenueName { get; init; }
+    public required DateTimeOffset StartsAt { get; init; }
+}
+
+public sealed record CommunityEventResponse(Guid Id, Guid CreatorUserId, string CreatorName, string Name, string Description, string VenueName,
+    DateTimeOffset StartsAt, int AttendeeCount, bool IsAttending, bool IsMine);
 
 /// <summary>Public user details for connection and conversation lists.</summary>
 public sealed record SocialUserResponse(Guid Id, string Name, string Bio, string? City, string? AvatarUrl);

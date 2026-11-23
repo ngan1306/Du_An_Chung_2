@@ -8,4 +8,6 @@ internal sealed class DatingMatch
     public User FirstUser { get; set; } = null!;
     public User SecondUser { get; set; } = null!;
     public DateTimeOffset MatchedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? EndedAt { get; set; }
+    public Guid? UnmatchedByUserId { get; set; }
 }

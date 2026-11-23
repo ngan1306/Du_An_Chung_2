@@ -21,6 +21,9 @@ internal sealed class JourneyService(DatingDbContext database, IWebHostEnvironme
                 .ThenInclude(user => user.Photos)
             .Include(post => post.Likes)
             .Include(post => post.Comments)
+            .Where(post => !post.IsHidden && !database.UserBlocks.Any(block =>
+                (block.BlockerUserId == userId && block.BlockedUserId == post.UserId)
+                || (block.BlockerUserId == post.UserId && block.BlockedUserId == userId)))
             .OrderByDescending(post => post.CreatedAt)
             .ThenByDescending(post => post.Id)
             .Take(limit)
@@ -126,6 +129,9 @@ internal sealed class JourneyService(DatingDbContext database, IWebHostEnvironme
             return JourneyPostOperationStatus.NotFound;
         }
 
+        await database.JourneyComments.Where(comment => comment.PostId == postId)
+            .ExecuteUpdateAsync(update => update.SetProperty(comment => comment.ParentCommentId, (Guid?)null), cancellationToken);
+        await database.JourneyComments.Where(comment => comment.PostId == postId).ExecuteDeleteAsync(cancellationToken);
         database.JourneyPosts.Remove(post);
         await database.SaveChangesAsync(cancellationToken);
 
@@ -143,11 +149,16 @@ internal sealed class JourneyService(DatingDbContext database, IWebHostEnvironme
     public async Task<JourneyLikeResponse> ToggleLikeAsync(Guid userId, Guid postId, CancellationToken cancellationToken)
     {
         var post = await database.JourneyPosts
-            .SingleOrDefaultAsync(candidate => candidate.Id == postId, cancellationToken);
+            .SingleOrDefaultAsync(candidate => candidate.Id == postId && !candidate.IsHidden, cancellationToken);
         if (post is null)
         {
             throw new KeyNotFoundException("Journey post not found.");
         }
+
+        if (await database.UserBlocks.AnyAsync(block =>
+            (block.BlockerUserId == userId && block.BlockedUserId == post.UserId)
+            || (block.BlockerUserId == post.UserId && block.BlockedUserId == userId), cancellationToken))
+            throw new KeyNotFoundException("Journey post not found.");
 
         var existing = await database.JourneyPostLikes
             .SingleOrDefaultAsync(like => like.PostId == postId && like.UserId == userId, cancellationToken);
@@ -166,7 +177,10 @@ internal sealed class JourneyService(DatingDbContext database, IWebHostEnvironme
 
     public async Task<IReadOnlyList<JourneyCommentResponse>> GetCommentsAsync(Guid userId, Guid postId, CancellationToken cancellationToken)
     {
-        var postExists = await database.JourneyPosts.AnyAsync(candidate => candidate.Id == postId, cancellationToken);
+        var postExists = await database.JourneyPosts.AnyAsync(candidate => candidate.Id == postId && !candidate.IsHidden
+            && !database.UserBlocks.Any(block =>
+                (block.BlockerUserId == userId && block.BlockedUserId == candidate.UserId)
+                || (block.BlockerUserId == candidate.UserId && block.BlockedUserId == userId)), cancellationToken);
         if (!postExists)
         {
             return [];
@@ -175,7 +189,9 @@ internal sealed class JourneyService(DatingDbContext database, IWebHostEnvironme
         var comments = await database.JourneyComments
             .AsNoTracking()
             .Include(comment => comment.User)
-            .Where(comment => comment.PostId == postId)
+            .Where(comment => comment.PostId == postId && !comment.IsHidden && !database.UserBlocks.Any(block =>
+                (block.BlockerUserId == userId && block.BlockedUserId == comment.UserId)
+                || (block.BlockerUserId == comment.UserId && block.BlockedUserId == userId)))
             .OrderBy(comment => comment.CreatedAt)
             .ThenBy(comment => comment.Id)
             .ToListAsync(cancellationToken);
@@ -186,16 +202,22 @@ internal sealed class JourneyService(DatingDbContext database, IWebHostEnvironme
             comment.UserId,
             comment.User.Name,
             comment.Content,
-            comment.CreatedAt)).ToArray();
+            comment.CreatedAt,
+            comment.ParentCommentId)).ToArray();
     }
 
-    public async Task<JourneyCommentResponse> AddCommentAsync(Guid userId, Guid postId, string content, CancellationToken cancellationToken)
+    public async Task<JourneyCommentResponse> AddCommentAsync(Guid userId, Guid postId, string content, Guid? parentCommentId, CancellationToken cancellationToken)
     {
-        var post = await database.JourneyPosts.SingleOrDefaultAsync(candidate => candidate.Id == postId, cancellationToken);
+        var post = await database.JourneyPosts.SingleOrDefaultAsync(candidate => candidate.Id == postId && !candidate.IsHidden, cancellationToken);
         if (post is null)
         {
             throw new KeyNotFoundException("Journey post not found.");
         }
+
+        if (await database.UserBlocks.AnyAsync(block =>
+            (block.BlockerUserId == userId && block.BlockedUserId == post.UserId)
+            || (block.BlockerUserId == post.UserId && block.BlockedUserId == userId), cancellationToken))
+            throw new KeyNotFoundException("Journey post not found.");
 
         var trimmed = (content ?? string.Empty).Trim();
         if (trimmed.Length is 0 or > 500)
@@ -209,18 +231,80 @@ internal sealed class JourneyService(DatingDbContext database, IWebHostEnvironme
             throw new KeyNotFoundException("User not found.");
         }
 
+        JourneyComment? parent = null;
+        if (parentCommentId.HasValue)
+        {
+            parent = await database.JourneyComments.SingleOrDefaultAsync(comment => comment.Id == parentCommentId.Value
+                && comment.PostId == postId && !comment.IsHidden, cancellationToken);
+            if (parent is null || await database.UserBlocks.AnyAsync(block =>
+                (block.BlockerUserId == userId && block.BlockedUserId == parent.UserId)
+                || (block.BlockerUserId == parent.UserId && block.BlockedUserId == userId), cancellationToken))
+                throw new KeyNotFoundException("Comment not found.");
+        }
+
         var comment = new JourneyComment
         {
             PostId = postId,
             UserId = userId,
             Content = trimmed,
             User = user,
-            Post = post
+            Post = post,
+            ParentCommentId = parentCommentId,
+            ParentComment = parent
         };
 
         database.JourneyComments.Add(comment);
+        var notificationRecipientId = parent?.UserId ?? post.UserId;
+        if (notificationRecipientId != userId)
+        {
+            await NotificationWriter.AddAsync(database, notificationRecipientId, "Comment", parent is null ? "Bài viết có bình luận mới" : "Bình luận có phản hồi mới",
+                parent is null ? $"{user.Name} đã bình luận về bài viết của bạn." : $"{user.Name} đã trả lời bình luận của bạn.", postId, cancellationToken);
+        }
         await database.SaveChangesAsync(cancellationToken);
-        return new JourneyCommentResponse(comment.Id, postId, userId, user.Name, trimmed, comment.CreatedAt);
+        return new JourneyCommentResponse(comment.Id, postId, userId, user.Name, trimmed, comment.CreatedAt, parentCommentId);
+    }
+
+    public async Task<IReadOnlyList<StoryResponse>> GetStoriesAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var stories = await database.Stories.AsNoTracking()
+            .Include(story => story.User).ThenInclude(user => user.Photos)
+            .Where(story => story.ExpiresAt > now && !story.User.IsSuspended
+                && (story.UserId == userId || database.Matches.Any(match => match.EndedAt == null
+                    && ((match.FirstUserId == userId && match.SecondUserId == story.UserId)
+                        || (match.SecondUserId == userId && match.FirstUserId == story.UserId))))
+                && !database.UserBlocks.Any(block =>
+                    (block.BlockerUserId == userId && block.BlockedUserId == story.UserId)
+                    || (block.BlockerUserId == story.UserId && block.BlockedUserId == userId)))
+            .OrderByDescending(story => story.CreatedAt)
+            .Take(100)
+            .ToListAsync(cancellationToken);
+        return stories.Select(story => new StoryResponse(story.Id, story.UserId, story.User.Name,
+            story.User.Photos.FirstOrDefault(photo => photo.IsAvatar)?.Url ?? story.User.Photos.OrderBy(photo => photo.CreatedAt).FirstOrDefault()?.Url,
+            story.Content, story.CreatedAt, story.ExpiresAt, story.UserId == userId)).ToArray();
+    }
+
+    public async Task<StoryResponse?> CreateStoryAsync(Guid userId, string content, CancellationToken cancellationToken)
+    {
+        var trimmed = (content ?? string.Empty).Trim();
+        if (trimmed.Length is 0 or > 500) return null;
+        var user = await database.Users.Include(candidate => candidate.Photos)
+            .SingleOrDefaultAsync(candidate => candidate.Id == userId && !candidate.IsSuspended, cancellationToken);
+        if (user is null) return null;
+        var now = DateTimeOffset.UtcNow;
+        var story = new Story { UserId = userId, User = user, Content = trimmed, CreatedAt = now, ExpiresAt = now.AddHours(24) };
+        database.Stories.Add(story);
+        await database.SaveChangesAsync(cancellationToken);
+        return new StoryResponse(story.Id, userId, user.Name,
+            user.Photos.FirstOrDefault(photo => photo.IsAvatar)?.Url ?? user.Photos.OrderBy(photo => photo.CreatedAt).FirstOrDefault()?.Url,
+            story.Content, story.CreatedAt, story.ExpiresAt, true);
+    }
+
+    public async Task<bool> DeleteStoryAsync(Guid userId, Guid storyId, CancellationToken cancellationToken)
+    {
+        var deleted = await database.Stories.Where(story => story.Id == storyId && story.UserId == userId)
+            .ExecuteDeleteAsync(cancellationToken);
+        return deleted > 0;
     }
 
     private string GetWebRootPath() =>
@@ -241,7 +325,7 @@ internal sealed class JourneyService(DatingDbContext database, IWebHostEnvironme
         post.CreatedAt,
         post.UserId == currentUserId,
         post.Likes.Count,
-        post.Comments.Count,
+        post.Comments.Count(comment => !comment.IsHidden),
         post.Likes.Any(like => like.UserId == currentUserId));
 
     private static async Task<(string Extension, string MediaType)?> DetectMediaAsync(

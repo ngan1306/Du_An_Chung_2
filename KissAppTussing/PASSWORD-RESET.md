@@ -21,3 +21,5 @@ $env:App__PublicBaseUrl = "https://your-app-domain.example"
 ```
 
 Keep the SMTP password in the host's secret store or environment, not in a checked-in settings file. In Production, `App:PublicBaseUrl` must be set to the public HTTPS address so reset emails point to the correct site. The message is sent over SMTP with TLS enabled by default. Configure a relay that supports this authentication method.
+
+The same SMTP settings deliver the six-digit email verification code from **Hồ sơ của tôi**. Verification codes expire after ten minutes. During Development only, a missing SMTP configuration writes the code to the application console; Production does not expose the code in the API response or logs.

@@ -33,6 +33,14 @@ internal static class ChatEndpoints
             .WithName("GetChatMedia")
             .WithSummary("Get an attachment belonging to the signed-in user's conversation");
 
+        chat.MapDelete("/messages/{messageId:guid}", HideMessageAsync)
+            .WithName("HideChatMessage")
+            .WithSummary("Hide a message from the signed-in user's chat history");
+
+        chat.MapPost("/messages/{messageId:guid}/recall", RecallMessageAsync)
+            .WithName("RecallChatMessage")
+            .WithSummary("Recall a message sent within the last 15 minutes");
+
         return endpoints;
     }
 
@@ -121,4 +129,27 @@ internal static class ChatEndpoints
                 Status = StatusCodes.Status404NotFound
             });
     }
+
+    private static async Task<Results<NoContent, NotFound>> HideMessageAsync(
+        Guid messageId,
+        System.Security.Claims.ClaimsPrincipal principal,
+        IChatService chatService,
+        CancellationToken cancellationToken) =>
+        await chatService.HideMessageAsync(CurrentUser.GetId(principal), messageId, cancellationToken)
+            ? TypedResults.NoContent()
+            : TypedResults.NotFound();
+
+    private static async Task<Results<NoContent, BadRequest<ProblemDetails>>> RecallMessageAsync(
+        Guid messageId,
+        System.Security.Claims.ClaimsPrincipal principal,
+        IChatService chatService,
+        CancellationToken cancellationToken) =>
+        await chatService.RecallMessageAsync(CurrentUser.GetId(principal), messageId, cancellationToken)
+            ? TypedResults.NoContent()
+            : TypedResults.BadRequest(new ProblemDetails
+            {
+                Title = "Không thể thu hồi tin nhắn",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = "Chỉ có thể thu hồi tin nhắn của bạn trong vòng 15 phút sau khi gửi."
+            });
 }

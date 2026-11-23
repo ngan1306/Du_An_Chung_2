@@ -5,13 +5,14 @@ namespace KissAppTussing.Services;
 internal interface IPasswordResetEmailQueue
 {
     bool TryQueue(string email, string resetUrl);
+    bool TryQueueVerificationCode(string email, string code);
 }
 
 internal sealed class PasswordResetEmailQueue(
     IServiceScopeFactory scopeFactory,
     ILogger<PasswordResetEmailQueue> logger) : BackgroundService, IPasswordResetEmailQueue
 {
-    private readonly Channel<ResetEmail> _messages = Channel.CreateBounded<ResetEmail>(
+    private readonly Channel<QueuedEmail> _messages = Channel.CreateBounded<QueuedEmail>(
         new BoundedChannelOptions(100)
         {
             FullMode = BoundedChannelFullMode.Wait,
@@ -19,7 +20,8 @@ internal sealed class PasswordResetEmailQueue(
             SingleWriter = false
         });
 
-    public bool TryQueue(string email, string resetUrl) => _messages.Writer.TryWrite(new ResetEmail(email, resetUrl));
+    public bool TryQueue(string email, string resetUrl) => _messages.Writer.TryWrite(new QueuedEmail(email, resetUrl, false));
+    public bool TryQueueVerificationCode(string email, string code) => _messages.Writer.TryWrite(new QueuedEmail(email, code, true));
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -29,7 +31,10 @@ internal sealed class PasswordResetEmailQueue(
             {
                 await using var scope = scopeFactory.CreateAsyncScope();
                 var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
-                await emailSender.SendPasswordResetLinkAsync(message.Email, message.ResetUrl, stoppingToken);
+                if (message.IsVerificationCode)
+                    await emailSender.SendEmailVerificationCodeAsync(message.Email, message.Value, stoppingToken);
+                else
+                    await emailSender.SendPasswordResetLinkAsync(message.Email, message.Value, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -42,5 +47,5 @@ internal sealed class PasswordResetEmailQueue(
         }
     }
 
-    private sealed record ResetEmail(string Email, string ResetUrl);
+    private sealed record QueuedEmail(string Email, string Value, bool IsVerificationCode);
 }

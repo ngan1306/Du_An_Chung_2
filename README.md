@@ -4,13 +4,16 @@ KissAppTussing là ứng dụng web giúp người dùng tạo hồ sơ, khám p
 
 ## Ứng dụng cung cấp gì?
 
-- **Tài khoản và hồ sơ:** đăng ký, đăng nhập, khôi phục mật khẩu; cập nhật thông tin cá nhân, mục đích kết nối, sở thích và ảnh hồ sơ.
-- **Khám phá:** xem hồ sơ, tìm kiếm và lọc theo thông tin như tên, độ tuổi, thành phố, giới tính và sở thích.
-- **Thích và bỏ qua:** thể hiện quan tâm, xem lại hồ sơ đã thích hoặc đã bỏ qua; hai lượt thích phù hợp có thể tạo kết đôi.
+- **Tài khoản và hồ sơ:** đăng ký, đăng nhập, đăng xuất thu hồi phiên, đổi mật khẩu, xác minh email OTP, quản lý thiết bị và quyền riêng tư.
+- **Khám phá:** tìm kiếm, lọc khoảng cách, dùng GPS riêng tư và chọn 10, 20 hoặc 30 hồ sơ mỗi trang.
+- **Thích và kết đôi:** Like, Super Like, hoàn tác bỏ qua, hủy kết đôi và xem lại hồ sơ đã thích/bỏ qua.
 - **Bạn bè và kết nối:** tìm người dùng, gửi lời mời kết nối, chấp nhận hoặc từ chối lời mời và quản lý các kết nối.
-- **Tin nhắn:** trò chuyện với người đã kết nối; hỗ trợ tin nhắn và nội dung đính kèm theo giới hạn của ứng dụng.
-- **Hành trình:** đăng bài, xem bài viết, thích và bình luận.
-- **Quản trị viên:** người được cấp quyền có thể xem thống kê, thêm, sửa, xóa tài khoản và tải dữ liệu được phép xuất dưới dạng JSON.
+- **Tin nhắn:** trạng thái online/đã xem, thu hồi và xóa tin nhắn ở phía mình, emoji, lời nhắn quà tặng miễn phí, gợi ý mở đầu theo sở thích, ảnh và video.
+- **Hành trình:** bài viết, chia sẻ liên kết, trả lời bình luận và story tự ẩn sau 24 giờ.
+- **Hẹn hò và cộng đồng:** lời mời, lịch hẹn, nhắc trước 24 giờ, đánh giá buổi hẹn và sự kiện cộng đồng.
+- **Thông báo và an toàn:** thông báo trong ứng dụng, tùy chọn theo loại, chặn/báo cáo và công cụ kiểm duyệt.
+- **Quản trị:** phân vai trò, xử lý báo cáo, gửi thông báo hệ thống, nhật ký hoạt động và biểu đồ 30 ngày.
+- **Quản trị viên:** người được cấp quyền có thể xem số liệu, quản lý tài khoản và tải dữ liệu được phép xuất dưới dạng JSON.
 - **Hồ sơ mẫu:** ứng dụng có dữ liệu demo để trình bày giao diện. Các script SQL trong thư mục `scripts` có thể bổ sung hồ sơ mẫu để tổng số tài khoản đạt 120.
 
 ## Công nghệ
@@ -52,6 +55,12 @@ dotnet run
 Mở địa chỉ `http://localhost:5000`. Khi chạy lần đầu, ứng dụng áp dụng migration để tạo/cập nhật database và chuẩn bị dữ liệu sở thích, hồ sơ demo. Tài khoản Windows chạy ứng dụng cần kết nối và có quyền cần thiết trên SQL Server.
 
 > Hãy dùng khóa JWT riêng cho từng môi trường và giữ bí mật khóa, mật khẩu SMTP cùng dữ liệu cá nhân. Không đưa các giá trị thật này vào Git.
+
+### Các tích hợp cần cấu hình riêng
+
+Một số mục trong bảng cần dịch vụ hoặc quy trình vận hành chưa có trong repository: gọi thoại/video và push khi website đóng cần hạ tầng realtime/push; xác minh danh tính, xác minh/kiểm duyệt ảnh và phát hiện tài khoản giả cần nhà cung cấp hoặc quy trình duyệt; Premium, mở khóa người đã thích, boost, lượt Super Like trả phí, giao dịch/gia hạn và quảng cáo cần mô hình gói cùng cổng thanh toán/quảng cáo. Dịch tin nhắn và AI matching cũng cần dịch vụ riêng. Các chức năng này chưa xử lý giao dịch hay xác minh thật.
+
+Trong bản hiện tại, gợi ý hồ sơ và câu mở đầu được tạo bằng quy tắc cục bộ (không gọi AI); địa điểm hẹn là các gợi ý loại địa điểm để người dùng tự điền (chưa tìm kiếm địa điểm theo bản đồ); quà tặng trong chat là lời nhắn emoji miễn phí, không phải vật phẩm hay giao dịch. Báo cáo và ẩn nội dung hiện có công cụ kiểm duyệt thủ công trong phần quản trị. OTP email dùng cấu hình SMTP ở trên.
 
 ### Bổ sung tài khoản demo trong SQL Server
 

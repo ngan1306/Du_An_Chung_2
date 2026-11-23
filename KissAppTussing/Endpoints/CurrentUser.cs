@@ -6,4 +6,7 @@ internal static class CurrentUser
 {
     public static Guid GetId(ClaimsPrincipal principal) =>
         Guid.Parse(principal.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    public static Guid GetSessionId(ClaimsPrincipal principal) =>
+        Guid.Parse(principal.FindFirstValue("sid")!);
 }

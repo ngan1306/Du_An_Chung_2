@@ -15,6 +15,10 @@ $env:Admin__UserIds__0 = "YOUR-ACCOUNT-ID"
 dotnet run
 ```
 
-For a persistent setup, add the ID to the `Admin:UserIds` array in the app's configuration or set the matching environment variable on the host. Do not put a real user's ID in a checked-in configuration file.
+For a persistent setup, add the ID to the `Admin:UserIds` array in the app's configuration or set the matching environment variable on the host. Do not put a real user's ID in a checked-in configuration file. Configured owners can manage accounts and roles, send system notices, view 30-day activity charts, and review the audit log.
+
+Owners can assign `Admin`, `Moderator`, or `Support` roles from the account management form. Role changes take effect after that user signs in again. Admin and Moderator accounts can review, hide, or dismiss content reports; Support accounts can view reports but cannot apply moderation actions. Only configured owner IDs can use account management, exports, audit logs, announcements, and analytics.
+
+The audit log records account creation, edits and deletion, report decisions, and system announcements. It stores action summaries and does not include passwords, tokens, or private message contents.
 
 The registration screen discloses server-side storage and owner access to the exportable records. The export endpoint also records the requesting owner account ID in the server log; it does not log exported content.

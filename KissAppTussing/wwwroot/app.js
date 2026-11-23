@@ -6,7 +6,7 @@ const resetPasswordForm = document.querySelector("#reset-password-form");
 const appView = document.querySelector("#dating-app");
 const authMessage = document.querySelector("#auth-message");
 const authButton = document.querySelector("#auth-submit");
-const appState = { token: localStorage.getItem("kiss.accessToken"), profile: null, interests: [], resetToken: null, connections: [], conversations: [], selectedConversationId: null, chatPoll: null, discoverProfiles: [], discoverPage: 1, discoverPageSize: 30, adminUsers: [] };
+const appState = { token: localStorage.getItem("kiss.accessToken"), profile: null, interests: [], resetToken: null, connections: [], conversations: [], selectedConversationId: null, chatPoll: null, presenceTimer: null, notifications: [], notificationIds: new Set(), notificationsInitialized: false, pendingDateRecipientId: null, discoverProfiles: [], discoverPage: 1, discoverPageSize: 30, adminUsers: [], adminReports: [], canModerateReports: false };
 const chatState = {
   contacts: [],
   activeUserId: null,
@@ -32,7 +32,7 @@ function cleanProfileName(value = "") {
 }
 
 function ageFrom(value) {
-  if (!value) return "";
+  if (!value) return "Đã ẩn tuổi";
   const birthDate = new Date(`${value}T00:00:00`);
   if (Number.isNaN(birthDate.getTime())) return "";
   const today = new Date();
@@ -206,14 +206,21 @@ async function enterWorkspace() {
   appView.hidden = false;
   document.title = "Kiss | Khám phá";
   document.querySelector("#app-user-name").textContent = appState.profile.name;
+  startPresenceHeartbeat();
   await loadInterests();
   fillProfile();
-  await Promise.all([loadDiscover(), loadLikedProfiles(), loadRejectedProfiles(), loadJourney(), loadAdminOverview()]);
+  await Promise.all([loadDiscover(), loadLikedProfiles(), loadRejectedProfiles(), loadJourney(), loadAdminOverview(), loadNotifications()]);
   showPage("discover");
+  const sharedPostId = new URLSearchParams(window.location.search).get("post");
+  if (sharedPostId) {
+    showPage("journey");
+    await loadJourney();
+    document.querySelector(`[data-journey-post-id="${CSS.escape(sharedPostId)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 }
 
 function showPage(page) {
-  for (const id of ["discover", "journey", "profile", "matches", "passed", "chat", "connections", "messages", "admin"]) {
+  for (const id of ["discover", "journey", "profile", "matches", "passed", "notifications", "dates", "events", "chat", "connections", "messages", "admin"]) {
     document.getElementById(`${id}-page`).hidden = id !== page;
   }
   document.querySelectorAll("[data-page]").forEach((button) => {
@@ -230,16 +237,46 @@ function showPage(page) {
   if (page === "messages") startSocialPolling();
   else stopSocialPolling();
   if (page === "admin") loadAdminOverview();
+  if (page === "notifications") loadNotifications();
+  if (page === "dates") loadDates();
+  if (page === "events") loadCommunityEvents();
+}
+
+function startPresenceHeartbeat() {
+  stopPresenceHeartbeat();
+  const heartbeat = () => {
+    request("/profiles/me/presence", { method: "POST" }).catch(() => {});
+    loadNotifications().catch(() => {});
+  };
+  heartbeat();
+  appState.presenceTimer = window.setInterval(heartbeat, 60000);
+}
+
+function stopPresenceHeartbeat() {
+  if (appState.presenceTimer) window.clearInterval(appState.presenceTimer);
+  appState.presenceTimer = null;
 }
 
 async function loadAdminOverview() {
   const nav = document.querySelector("#admin-nav");
   try {
-    const [overview, users] = await Promise.all([
-      request("/admin/overview"),
-      request("/admin/users")
-    ]);
+    const access = await request("/admin/access");
     nav.hidden = false;
+    const isOwner = Boolean(access.isOwner);
+    appState.canModerateReports = Boolean(access.canModerate || isOwner);
+    document.querySelector("#admin-stat-grid").hidden = !isOwner;
+    document.querySelector("#admin-user-form").closest(".admin-users-panel").hidden = !isOwner;
+    document.querySelector("#admin-users").closest(".admin-users-panel").hidden = !isOwner;
+    document.querySelector("#admin-announcement-panel").hidden = !isOwner;
+    document.querySelector("#admin-analytics-panel").hidden = !isOwner;
+    document.querySelector("#admin-audit-panel").hidden = !isOwner;
+    const reports = await request("/admin/reports");
+    appState.adminReports = reports;
+    renderAdminReports(reports);
+    if (!isOwner) return;
+    const [overview, users, audit, analytics] = await Promise.all([
+      request("/admin/overview"), request("/admin/users"), request("/admin/audit"), request("/admin/analytics")
+    ]);
     appState.adminUsers = users;
     document.querySelector("#admin-stat-grid").innerHTML = [
       ["Tài khoản", overview.userCount], ["Lượt thích/bỏ qua", overview.swipeCount],
@@ -247,19 +284,96 @@ async function loadAdminOverview() {
       ["Bình luận", overview.journeyCommentCount], ["Tin nhắn (chỉ số lượng)", overview.chatMessageCount]
     ].map(([label, value]) => `<article class="admin-stat"><span>${escapeHtml(label)}</span><strong>${value}</strong></article>`).join("");
     renderAdminUsers(users);
+    renderAdminAudit(audit);
+    renderAdminAnalytics(analytics);
+    appState.adminReports = reports;
     document.querySelector("#admin-message").hidden = true;
   } catch {
     nav.hidden = true;
   }
 }
 
+function renderAdminAudit(rows) {
+  const container = document.querySelector("#admin-audit-list");
+  container.innerHTML = rows.length ? rows.map((row) => `
+    <article class="admin-audit-row"><div><strong>${escapeHtml(row.action)} · ${escapeHtml(row.targetType)}</strong><span>${escapeHtml(row.adminName)} · ${new Date(row.createdAt).toLocaleString("vi-VN")}</span></div><p>${escapeHtml(row.details)}</p></article>`).join("")
+    : '<p class="empty-message">Chưa có hoạt động quản trị.</p>';
+}
+
+function renderAdminAnalytics(rows) {
+  const container = document.querySelector("#admin-analytics");
+  const maximum = Math.max(1, ...rows.flatMap((row) => [row.newUsers, row.swipes, row.matches]));
+  container.innerHTML = rows.map((row) => `
+    <div class="analytics-day" title="${new Date(row.date).toLocaleDateString("vi-VN")}: ${row.newUsers} tài khoản, ${row.swipes} lượt tương tác, ${row.matches} kết đôi">
+      <div class="analytics-bars"><i class="analytics-user" style="height:${Math.max(2, row.newUsers / maximum * 100)}%"></i><i class="analytics-swipe" style="height:${Math.max(2, row.swipes / maximum * 100)}%"></i><i class="analytics-match" style="height:${Math.max(2, row.matches / maximum * 100)}%"></i></div>
+      <time>${new Date(row.date).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}</time>
+    </div>`).join("");
+}
+
+async function sendSystemAnnouncement(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = new FormData(form);
+  const button = form.querySelector("[type=submit]");
+  button.disabled = true;
+  try {
+    const result = await request("/admin/notifications", {
+      method: "POST",
+      body: JSON.stringify({ title: values.get("title").trim(), body: values.get("body").trim() })
+    });
+    form.reset();
+    notify(document.querySelector("#admin-announcement-message"), `Đã gửi thông báo đến ${result.recipientCount} tài khoản.`, true);
+    await loadAdminOverview();
+  } catch (error) {
+    notify(document.querySelector("#admin-announcement-message"), error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function renderAdminReports(reports) {
+  const container = document.querySelector("#admin-reports");
+  if (!reports.length) {
+    container.innerHTML = '<p class="empty-message">Chưa có báo cáo nào.</p>';
+    return;
+  }
+  container.innerHTML = reports.map((report) => `
+    <article class="admin-report-card ${report.status === "Pending" ? "is-pending" : ""}">
+      <div class="admin-report-copy">
+        <div><strong>${escapeHtml(report.targetType)} · ${escapeHtml(report.status)}</strong><small>Báo cáo bởi ${escapeHtml(report.reporterName)} · ${new Date(report.createdAt).toLocaleString("vi-VN")}</small></div>
+        <p>${escapeHtml(report.reason)}</p>
+        <blockquote>${escapeHtml(report.targetPreview || "Không còn nội dung để xem")}</blockquote>
+        <small>Mã nội dung: ${escapeHtml(report.targetId)}</small>
+      </div>
+      ${report.status === "Pending" && appState.canModerateReports ? `<div class="admin-user-actions"><button type="button" data-report-resolve="${escapeHtml(report.id)}">${report.targetType === "User" ? "Khóa tài khoản" : "Ẩn nội dung"}</button><button type="button" data-report-dismiss="${escapeHtml(report.id)}">Bỏ qua</button></div>` : ""}
+    </article>`).join("");
+}
+
+async function updateAdminReport(reportId, resolve) {
+  const report = appState.adminReports.find((item) => item.id === reportId);
+  if (!report) return;
+  const hideTarget = resolve;
+  const action = report.targetType === "User" ? "khóa tài khoản này" : "ẩn nội dung này";
+  if (hideTarget && !window.confirm(`Xác nhận ${action}?`)) return;
+  try {
+    await request(`/admin/reports/${reportId}`, {
+      method: "PUT",
+      body: JSON.stringify({ status: resolve ? "Resolved" : "Dismissed", hideTarget })
+    });
+    await loadAdminOverview();
+  } catch (error) {
+    notify(document.querySelector("#admin-message"), error.message);
+  }
+}
+
 function renderAdminUsers(users) {
   const container = document.querySelector("#admin-users");
   container.innerHTML = users.length
-    ? `<div class="admin-user-table-wrap"><table class="admin-user-table"><thead><tr><th>Họ tên</th><th>Email</th><th>Thành phố</th><th>Ngày tạo</th><th>Thao tác</th></tr></thead><tbody>${users.map((user) => `
+    ? `<div class="admin-user-table-wrap"><table class="admin-user-table"><thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Thành phố</th><th>Ngày tạo</th><th>Thao tác</th></tr></thead><tbody>${users.map((user) => `
       <tr>
         <td><strong>${escapeHtml(user.name)}</strong></td>
         <td>${escapeHtml(user.email)}</td>
+        <td>${escapeHtml(user.role || "User")}</td>
         <td>${escapeHtml(user.city || "—")}</td>
         <td><time>${new Date(user.createdAt).toLocaleDateString("vi-VN")}</time></td>
         <td><div class="admin-user-actions"><button class="quiet-button" type="button" data-admin-edit="${escapeHtml(user.id)}">Sửa</button><button class="admin-delete-button" type="button" data-admin-delete="${escapeHtml(user.id)}" ${user.id === appState.profile?.id ? "disabled title=\"Không thể xóa tài khoản đang đăng nhập\"" : ""}>Xóa</button></div></td>
@@ -294,6 +408,7 @@ function editAdminUser(userId) {
   form.elements.occupation.value = user.occupation || "";
   form.elements.education.value = user.education || "";
   form.elements.lookingFor.value = user.lookingFor;
+  form.elements.role.value = user.role || "User";
   form.elements.bio.value = user.bio || "";
   const password = document.querySelector("#admin-user-password");
   password.value = "";
@@ -322,6 +437,7 @@ async function submitAdminUser(event) {
     occupation: values.get("occupation").trim() || null,
     education: values.get("education").trim() || null,
     lookingFor: values.get("lookingFor"),
+    role: values.get("role"),
     bio: values.get("bio").trim()
   };
   const userId = form.dataset.userId;
@@ -533,6 +649,8 @@ async function loadDiscover() {
     const value = values.get(key);
     if (value) params.set(key, value);
   }
+  const radiusKm = values.get("radiusKm");
+  if (radiusKm) params.set("radiusKm", radiusKm);
   const results = document.querySelector("#discover-results");
   const message = document.querySelector("#discover-message");
   const count = document.querySelector("#discover-count");
@@ -602,12 +720,14 @@ function renderProfiles(container, profiles, allowSwipe, allowChat = false, swip
     const image = photoUrl(avatar?.url);
     const swipeStatus = swipeStatusByProfile?.get(profile.id);
     const actions = allowSwipe
-      ? `<div class="person-card-actions"><button type="button" data-swipe="false">Bỏ qua</button><button type="button" data-swipe="true">Thích ♡</button></div>`
+      ? `<div class="person-card-actions"><button type="button" data-swipe="false">Bỏ qua</button><button type="button" data-swipe="true">Thích ♡</button><button type="button" data-swipe="true" data-super-like="true">Super Like ★</button></div>`
       : swipeStatusByProfile
         ? `<div class="person-card-actions person-card-chat-actions ${swipeStatus?.isRejected ? "rejected-actions" : swipeStatus?.isMutualLike ? "" : "pending-like-actions"}">${swipeStatus?.isRejected
           ? `<span class="rejected-status">Đã bỏ qua</span><button class="undo-swipe-button" type="button" data-undo-swipe="${profile.id}" aria-label="Thu hồi lượt bỏ qua với ${escapeHtml(name)}">Thu hồi</button>`
+          : swipeStatus?.isUnmatched
+            ? `<span class="rejected-status">Đã hủy kết đôi</span>`
           : swipeStatus?.isMutualLike
-            ? `<button class="person-card-chat-button" type="button" data-open-chat="${profile.id}" aria-label="Nhắn tin với ${escapeHtml(name)}"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M3 4.75A2.75 2.75 0 0 1 5.75 2h8.5A2.75 2.75 0 0 1 17 4.75v5.5A2.75 2.75 0 0 1 14.25 13H9l-4.5 3v-3.2A2.75 2.75 0 0 1 3 10.25z"/></svg>Nhắn tin</button>`
+            ? `<button class="person-card-chat-button" type="button" data-open-chat="${profile.id}" aria-label="Nhắn tin với ${escapeHtml(name)}"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M3 4.75A2.75 2.75 0 0 1 5.75 2h8.5A2.75 2.75 0 0 1 17 4.75v5.5A2.75 2.75 0 0 1 14.25 13H9l-4.5 3v-3.2A2.75 2.75 0 0 1 3 10.25z"/></svg>Nhắn tin</button>${swipeStatus?.matchId ? `<button class="date-invite-button" type="button" data-invite-date="${profile.id}">Mời hẹn hò</button><button class="unmatch-button" type="button" data-unmatch="${swipeStatus.matchId}">Hủy kết đôi</button>` : ""}`
             : `<span class="like-pending-status">Đã thích · đang chờ phản hồi</span><button class="person-card-chat-button" type="button" data-open-chat="${profile.id}" aria-label="Nhắn tin với ${escapeHtml(name)}"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M3 4.75A2.75 2.75 0 0 1 5.75 2h8.5A2.75 2.75 0 0 1 17 4.75v5.5A2.75 2.75 0 0 1 14.25 13H9l-4.5 3v-3.2A2.75 2.75 0 0 1 3 10.25z"/></svg>Nhắn tin</button>`}</div>`
         : allowChat
           ? `<div class="person-card-actions person-card-chat-actions"><button class="person-card-chat-button" type="button" data-open-chat="${profile.id}" aria-label="Nhắn tin với ${escapeHtml(name)}"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M3 4.75A2.75 2.75 0 0 1 5.75 2h8.5A2.75 2.75 0 0 1 17 4.75v5.5A2.75 2.75 0 0 1 14.25 13H9l-4.5 3v-3.2A2.75 2.75 0 0 1 3 10.25z"/></svg>Nhắn tin</button></div>`
@@ -615,10 +735,11 @@ function renderProfiles(container, profiles, allowSwipe, allowChat = false, swip
     return `<article class="person-card" data-profile-id="${profile.id}">
       ${image ? `<img class="person-photo" src="${escapeHtml(image)}" alt="Ảnh hồ sơ ${escapeHtml(name)}">` : `<div class="person-photo person-photo-placeholder" aria-hidden="true">${escapeHtml(name.trim().charAt(0).toUpperCase())}</div>`}
       <div class="person-card-body"><div class="person-card-heading"><h2>${escapeHtml(name)}</h2><span>${ageFrom(profile.birthDate)}</span></div>
-      <div class="person-meta">${profile.city ? `<span>${escapeHtml(profile.city)}</span>` : ""}<span>${escapeHtml(profile.lookingFor || "Dating")}</span></div>
+      ${profile.isOnline ? '<span class="online-status">Đang hoạt động</span>' : ""}
+      <div class="person-meta">${profile.city ? `<span>${escapeHtml(profile.city)}</span>` : ""}${Number.isFinite(profile.distanceKm) ? `<span>${Math.round(profile.distanceKm)} km</span>` : ""}<span>${escapeHtml(profile.lookingFor || "Dating")}</span></div>
       <p class="person-bio">${escapeHtml(profile.bio || "Chưa có phần giới thiệu.")}</p>
       <div class="person-interests">${(profile.interests || []).map((interest) => `<span class="interest-chip">${escapeHtml(interest.name)}</span>`).join("")}</div>
-      ${actions}</div></article>`;
+      ${actions}<div class="person-safety-actions"><button type="button" data-report-user="${profile.id}" data-user-name="${escapeHtml(name)}">Báo cáo</button><button type="button" data-block-user="${profile.id}" data-user-name="${escapeHtml(name)}">Chặn</button></div></div></article>`;
   }).join("");
 }
 
@@ -627,9 +748,430 @@ async function loadProfile() {
     appState.profile = await request("/profiles/me");
     fillProfile();
     renderPhotos();
+    await Promise.all([loadPrivacySettings(), loadNotificationPreferences(), loadSessions(), loadBlockedUsers(), loadEmailVerificationStatus()]);
   } catch (error) {
     notify(document.querySelector("#profile-message"), error.message);
   }
+}
+
+function suggestProfileImprovements() {
+  const form = document.querySelector("#profile-form");
+  const suggestions = [];
+  if (form.elements.bio.value.trim().length < 100) suggestions.push("Viết thêm vài câu về điều bạn thích làm và một điều bạn muốn cùng người khác trải nghiệm.");
+  if ((appState.profile?.interests || []).length < 3) suggestions.push("Chọn ít nhất 3 sở thích để người khác dễ tìm chủ đề chung.");
+  if ((appState.profile?.photos || []).length < 2) suggestions.push("Thêm một vài ảnh rõ mặt và ảnh hoạt động thường ngày.");
+  if (!form.elements.city.value.trim()) suggestions.push("Thêm thành phố để hồ sơ xuất hiện trong tìm kiếm gần bạn.");
+  if (!suggestions.length) suggestions.push("Hồ sơ đã có thông tin cơ bản. Hãy giữ phần giới thiệu cụ thể và cập nhật ảnh mới khi phù hợp.");
+  notify(document.querySelector("#profile-message"), suggestions.join(" "), true);
+}
+
+async function loadPrivacySettings() {
+  const settings = await request("/profiles/me/privacy");
+  const form = document.querySelector("#privacy-form");
+  for (const key of ["hideAge", "hideCity", "hideOccupation", "hideEducation", "isIncognito"]) {
+    form.elements[key].checked = Boolean(settings[key]);
+  }
+}
+
+async function loadNotificationPreferences() {
+  const preferences = await request("/notifications/preferences");
+  const form = document.querySelector("#notification-preferences-form");
+  for (const key of ["likeEnabled", "matchEnabled", "chatEnabled", "commentEnabled", "dateEnabled"]) {
+    form.elements[key].checked = Boolean(preferences[key]);
+  }
+}
+
+async function saveNotificationPreferences(event) {
+  event.preventDefault();
+  const values = new FormData(event.currentTarget);
+  const preferences = Object.fromEntries(["likeEnabled", "matchEnabled", "chatEnabled", "commentEnabled", "dateEnabled"]
+    .map((key) => [key, values.has(key)]));
+  const message = document.querySelector("#notification-preferences-message");
+  try {
+    await request("/notifications/preferences", { method: "PUT", body: JSON.stringify(preferences) });
+    notify(message, "Đã lưu cài đặt thông báo.", true);
+  } catch (error) {
+    notify(message, error.message);
+  }
+}
+
+async function loadNotifications() {
+  const notifications = await request("/notifications?limit=100");
+  if (appState.notificationsInitialized && "Notification" in window && Notification.permission === "granted") {
+    for (const item of notifications) {
+      if (!appState.notificationIds.has(item.id) && !item.readAt) new Notification(item.title, { body: item.body, tag: item.id });
+    }
+  }
+  appState.notificationsInitialized = true;
+  appState.notifications = notifications;
+  appState.notificationIds = new Set(notifications.map((item) => item.id));
+  const unread = notifications.filter((item) => !item.readAt).length;
+  document.querySelector("#notification-count").textContent = unread;
+  renderNotifications();
+}
+
+function renderNotifications() {
+  const list = document.querySelector("#notification-list");
+  list.innerHTML = appState.notifications.length ? appState.notifications.map((item) => `
+    <article class="notification-card ${item.readAt ? "is-read" : "is-unread"}">
+      <div><span class="notification-type">${escapeHtml(item.type)}</span><h2>${escapeHtml(item.title)}</h2><p>${escapeHtml(item.body)}</p><time>${new Date(item.createdAt).toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })}</time></div>
+      ${item.readAt ? "" : `<button type="button" data-mark-notification="${item.id}">Đánh dấu đã đọc</button>`}
+    </article>`).join("") : '<p class="empty-message">Chưa có thông báo mới.</p>';
+}
+
+async function manageNotifications(event) {
+  const button = event.target.closest("[data-mark-notification]");
+  if (!button) return;
+  button.disabled = true;
+  try {
+    await request(`/notifications/${button.dataset.markNotification}/read`, { method: "POST" });
+    await loadNotifications();
+  } catch (error) {
+    button.disabled = false;
+    notify(document.querySelector("#notification-list"), error.message);
+  }
+}
+
+async function markAllNotificationsRead() {
+  try {
+    await request("/notifications/read-all", { method: "POST" });
+    await loadNotifications();
+  } catch (error) {
+    notify(document.querySelector("#notification-list"), error.message);
+  }
+}
+
+async function enableBrowserNotifications() {
+  if (!("Notification" in window)) {
+    notify(document.querySelector("#notification-list"), "Trình duyệt này không hỗ trợ thông báo.");
+    return;
+  }
+  const permission = await Notification.requestPermission();
+  if (permission === "granted") notify(document.querySelector("#notification-list"), "Thông báo trình duyệt đã bật khi Kiss đang mở.", true);
+}
+
+async function loadDates() {
+  const list = document.querySelector("#date-list");
+  const recipientSelect = document.querySelector("#date-invitation-form").elements.recipientUserId;
+  try {
+    const [dates, matches] = await Promise.all([request("/dates"), request("/matches")]);
+    recipientSelect.innerHTML = '<option value="">Chọn người</option>' + matches.map((match) =>
+      `<option value="${escapeHtml(match.profile.id)}">${escapeHtml(match.profile.name)}</option>`).join("");
+    if (appState.pendingDateRecipientId && matches.some((match) => match.profile.id === appState.pendingDateRecipientId)) {
+      recipientSelect.value = appState.pendingDateRecipientId;
+      appState.pendingDateRecipientId = null;
+    }
+    appState.dates = dates;
+    const statusLabels = { Pending: "Chờ phản hồi", Accepted: "Đã xác nhận", Declined: "Đã từ chối", Cancelled: "Đã hủy" };
+    list.innerHTML = dates.length ? dates.map((date) => {
+      const startsAt = new Date(date.startsAt);
+      const isPast = startsAt <= new Date();
+      const safeUrl = (() => { try { const url = new URL(date.venueUrl); return ["http:", "https:"].includes(url.protocol) ? url.href : ""; } catch { return ""; } })();
+      const reviews = date.reviews.map((review) => `<div class="date-review"><strong>${escapeHtml(review.reviewerName)}</strong><span>${"★".repeat(review.rating)}${"☆".repeat(5 - review.rating)}</span><p>${escapeHtml(review.comment || "Không có nhận xét.")}</p></div>`).join("");
+      const actions = `${!date.isOrganizer && date.status === "Pending" ? `<button type="button" data-date-action="accept" data-date-id="${date.id}">Đồng ý</button><button type="button" data-date-action="decline" data-date-id="${date.id}">Từ chối</button>` : ""}${["Pending", "Accepted"].includes(date.status) ? `<button type="button" class="cancel-date-button" data-cancel-date="${date.id}">Hủy lịch</button>` : ""}`;
+      const reviewForm = date.status === "Accepted" && isPast && !date.hasReviewed ? `<form class="date-review-form" data-date-review="${date.id}"><label class="field"><span>Đánh giá buổi hẹn</span><select name="rating"><option value="5">5 sao</option><option value="4">4 sao</option><option value="3">3 sao</option><option value="2">2 sao</option><option value="1">1 sao</option></select></label><label class="field"><span>Nhận xét</span><input name="comment" maxlength="500" placeholder="Chia sẻ cảm nhận"></label><button class="quiet-button" type="submit">Gửi đánh giá</button></form>` : "";
+      return `<article class="date-card"><header><div><span class="date-status">${escapeHtml(statusLabels[date.status] || date.status)}</span><h3>${escapeHtml(date.venueName)}</h3></div><strong>${escapeHtml(date.otherUserName)}</strong></header><p class="date-time">${startsAt.toLocaleString("vi-VN", { dateStyle: "full", timeStyle: "short" })}</p>${date.venueAddress ? `<p>${escapeHtml(date.venueAddress)}</p>` : ""}${safeUrl ? `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noreferrer">Mở địa điểm</a>` : ""}${date.message ? `<p class="date-message">${escapeHtml(date.message)}</p>` : ""}<div class="date-card-actions">${actions}</div>${reviewForm}<div class="date-reviews">${reviews}</div></article>`;
+    }).join("") : '<p class="empty-message">Chưa có lời mời hẹn hò. Bạn có thể gửi lời mời cho người đã kết đôi với mình.</p>';
+  } catch (error) {
+    notify(document.querySelector("#date-form-message"), error.message);
+  }
+}
+
+async function submitDateInvitation(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = Object.fromEntries(new FormData(form));
+  const message = document.querySelector("#date-form-message");
+  values.startsAt = new Date(values.startsAt).toISOString();
+  try {
+    await request("/dates", { method: "POST", body: JSON.stringify(values) });
+    form.reset();
+    notify(message, "Đã gửi lời mời hẹn hò.", true);
+    await loadDates();
+    await loadNotifications();
+  } catch (error) {
+    notify(message, error.message);
+  }
+}
+
+async function manageDateInvitation(event) {
+  const actionButton = event.target.closest("[data-date-action]");
+  const cancelButton = event.target.closest("[data-cancel-date]");
+  const button = actionButton || cancelButton;
+  if (!button) return;
+  button.disabled = true;
+  try {
+    if (actionButton) {
+      await request(`/dates/${button.dataset.dateId}/${button.dataset.dateAction}`, { method: "POST" });
+    } else {
+      if (!window.confirm("Bạn có muốn hủy lịch hẹn này không?")) { button.disabled = false; return; }
+      await request(`/dates/${button.dataset.cancelDate}`, { method: "DELETE" });
+    }
+    await loadDates();
+    await loadNotifications();
+  } catch (error) {
+    button.disabled = false;
+    notify(document.querySelector("#date-form-message"), error.message);
+  }
+}
+
+async function submitDateReview(event) {
+  const form = event.target.closest("[data-date-review]");
+  if (!form) return;
+  event.preventDefault();
+  try {
+    await request(`/dates/${form.dataset.dateReview}/reviews`, {
+      method: "POST",
+      body: JSON.stringify({ rating: Number(new FormData(form).get("rating")), comment: new FormData(form).get("comment") })
+    });
+    await loadDates();
+  } catch (error) {
+    notify(document.querySelector("#date-form-message"), error.message);
+  }
+}
+
+async function loadCommunityEvents() {
+  const container = document.querySelector("#community-event-list");
+  try {
+    const events = await request("/events?limit=50");
+    container.innerHTML = events.length ? events.map((item) => `
+      <article class="community-event-card">
+        <header><div><span class="date-status">${new Date(item.startsAt).toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })}</span><h3>${escapeHtml(item.name)}</h3></div><strong>${item.attendeeCount} người tham gia</strong></header>
+        <p><b>Địa điểm:</b> ${escapeHtml(item.venueName)}</p>
+        ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ""}
+        <small>Tạo bởi ${escapeHtml(item.creatorName)}</small>
+        <div class="date-card-actions">${item.isMine ? `<button class="cancel-date-button" type="button" data-delete-community-event="${item.id}">Xóa sự kiện</button>` : `<button type="button" data-toggle-event-attendance="${item.id}" data-attending="${item.isAttending}">${item.isAttending ? "Rời sự kiện" : "Tham gia"}</button>`}</div>
+      </article>`).join("") : '<p class="empty-message">Chưa có sự kiện sắp tới. Bạn có thể tạo sự kiện đầu tiên.</p>';
+  } catch (error) {
+    container.innerHTML = `<p class="empty-message">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+async function submitCommunityEvent(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = new FormData(form);
+  const button = form.querySelector("[type=submit]");
+  button.disabled = true;
+  try {
+    await request("/events", {
+      method: "POST",
+      body: JSON.stringify({
+        name: values.get("name").trim(),
+        venueName: values.get("venueName").trim(),
+        description: values.get("description").trim(),
+        startsAt: new Date(values.get("startsAt")).toISOString()
+      })
+    });
+    form.reset();
+    notify(document.querySelector("#community-event-message"), "Đã đăng sự kiện.", true);
+    await loadCommunityEvents();
+  } catch (error) {
+    notify(document.querySelector("#community-event-message"), error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function manageCommunityEvent(event) {
+  const deleteButton = event.target.closest("[data-delete-community-event]");
+  const attendanceButton = event.target.closest("[data-toggle-event-attendance]");
+  if (!deleteButton && !attendanceButton) return;
+  const eventId = deleteButton?.dataset.deleteCommunityEvent || attendanceButton.dataset.toggleEventAttendance;
+  try {
+    if (deleteButton) {
+      if (!window.confirm("Xóa sự kiện này?")) return;
+      await request(`/events/${eventId}`, { method: "DELETE" });
+    } else {
+      await request(`/events/${eventId}/attend`, { method: attendanceButton.dataset.attending === "true" ? "DELETE" : "POST" });
+    }
+    await loadCommunityEvents();
+  } catch (error) {
+    notify(document.querySelector("#community-event-message"), error.message);
+  }
+}
+
+async function savePrivacySettings(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = new FormData(form);
+  const settings = Object.fromEntries(["hideAge", "hideCity", "hideOccupation", "hideEducation", "isIncognito"]
+    .map((key) => [key, values.has(key)]));
+  const message = document.querySelector("#privacy-message");
+  try {
+    await request("/profiles/me/privacy", { method: "PUT", body: JSON.stringify(settings) });
+    if (!document.querySelector("#discover-page").hidden) await loadDiscover();
+    notify(message, "Đã lưu quyền riêng tư.", true);
+  } catch (error) {
+    notify(message, error.message);
+  }
+}
+
+async function submitPasswordChange(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const message = document.querySelector("#change-password-message");
+  try {
+    await request("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify(Object.fromEntries(new FormData(form)))
+    });
+    form.reset();
+    notify(message, "Đã đổi mật khẩu. Các thiết bị khác đã được đăng xuất.", true);
+    await loadSessions();
+  } catch (error) {
+    notify(message, error.message);
+  }
+}
+
+async function loadSessions() {
+  const container = document.querySelector("#session-list");
+  const sessions = await request("/auth/sessions");
+  if (!sessions.length) {
+    container.innerHTML = '<p class="session-empty">Không có phiên đăng nhập đang hoạt động.</p>';
+    return;
+  }
+  container.innerHTML = sessions.map((session) => `
+    <div class="session-row"><div><strong>${escapeHtml(session.deviceName)}</strong><small>Hoạt động ${new Date(session.lastSeenAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}${session.isCurrent ? " · Thiết bị này" : ""}</small></div>
+    ${session.isCurrent ? "" : `<button type="button" data-revoke-session="${escapeHtml(session.id)}">Đăng xuất</button>`}</div>`).join("");
+}
+
+async function loadBlockedUsers() {
+  const container = document.querySelector("#blocked-users");
+  const users = await request("/safety/blocks");
+  container.innerHTML = users.length ? users.map((user) => `
+    <div class="session-row"><div><strong>${escapeHtml(user.name)}</strong><small>Đã chặn ${new Date(user.createdAt).toLocaleDateString("vi-VN")}</small></div>
+    <button type="button" data-unblock-user="${escapeHtml(user.userId)}">Bỏ chặn</button></div>`).join("")
+    : '<p class="session-empty">Bạn chưa chặn ai.</p>';
+}
+
+async function blockUser(userId, name = "người dùng này") {
+  if (!window.confirm(`Chặn ${name}? Hai bên sẽ không thể liên hệ hoặc thấy hoạt động của nhau.`)) return;
+  try {
+    await request(`/safety/users/${userId}/block`, { method: "POST" });
+    if (chatState.activeUserId === userId) clearActiveChat();
+    await Promise.all([loadDiscover(), loadJourney(), loadChatContacts(), loadBlockedUsers()]);
+    notify(document.querySelector("#change-password-message"), `Đã chặn ${name}.`, true);
+  } catch (error) {
+    notify(document.querySelector("#change-password-message"), error.message);
+  }
+}
+
+async function unblockUser(userId) {
+  try {
+    await request(`/safety/users/${userId}/block`, { method: "DELETE" });
+    await Promise.all([loadBlockedUsers(), loadDiscover(), loadJourney(), loadChatContacts()]);
+  } catch (error) {
+    notify(document.querySelector("#change-password-message"), error.message);
+  }
+}
+
+async function reportContent(targetType, targetId) {
+  const reason = window.prompt("Vui lòng cho biết lý do báo cáo:");
+  if (reason === null) return;
+  const route = { User: "users", Post: "posts", Comment: "comments", Message: "messages" }[targetType];
+  if (!route || !reason.trim()) return;
+  const message = document.querySelector(targetType === "Message" ? "#chat-status" : "#journey-message");
+  try {
+    await request(`/safety/${route}/${targetId}/reports`, { method: "POST", body: JSON.stringify({ reason: reason.trim() }) });
+    notify(message, "Đã gửi báo cáo để quản trị viên xem xét.", true);
+  } catch (error) {
+    notify(message, error.message);
+  }
+}
+
+async function loadEmailVerificationStatus() {
+  const status = await request("/auth/email-verification");
+  document.querySelector("#email-verification-status").textContent = status.isVerified
+    ? `Email đã được xác minh${status.verifiedAt ? ` vào ${new Date(status.verifiedAt).toLocaleDateString("vi-VN")}` : ""}.`
+    : "Email chưa được xác minh.";
+  document.querySelector("#request-email-code").hidden = status.isVerified;
+  document.querySelector("#email-verification-form").hidden = status.isVerified;
+}
+
+async function requestEmailVerificationCode() {
+  const button = document.querySelector("#request-email-code");
+  const message = document.querySelector("#email-verification-message");
+  button.disabled = true;
+  try {
+    await request("/auth/email-verification/request", { method: "POST" });
+    notify(message, "Nếu email chưa được xác minh, mã OTP sẽ được gửi đến hộp thư của bạn.", true);
+  } catch (error) {
+    notify(message, error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function submitEmailVerification(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const message = document.querySelector("#email-verification-message");
+  try {
+    await request("/auth/email-verification/verify", {
+      method: "POST",
+      body: JSON.stringify(Object.fromEntries(new FormData(form)))
+    });
+    form.reset();
+    await loadEmailVerificationStatus();
+    notify(message, "Email đã được xác minh.", true);
+  } catch (error) {
+    notify(message, error.message);
+  }
+}
+
+async function manageSessions(event) {
+  const button = event.target.closest("[data-revoke-session]");
+  if (!button) return;
+  button.disabled = true;
+  try {
+    await request(`/auth/sessions/${button.dataset.revokeSession}`, { method: "DELETE" });
+    await loadSessions();
+  } catch (error) {
+    button.disabled = false;
+    notify(document.querySelector("#change-password-message"), error.message);
+  }
+}
+
+async function revokeOtherSessions() {
+  const button = document.querySelector("#revoke-other-sessions");
+  button.disabled = true;
+  try {
+    const result = await request("/auth/sessions/revoke-others", { method: "POST" });
+    await loadSessions();
+    notify(document.querySelector("#change-password-message"), `Đã đăng xuất ${result.revokedCount} thiết bị khác.`, true);
+  } catch (error) {
+    notify(document.querySelector("#change-password-message"), error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function updateDiscoveryLocation() {
+  const message = document.querySelector("#location-message");
+  if (!navigator.geolocation) {
+    notify(message, "Trình duyệt này không hỗ trợ định vị.");
+    return;
+  }
+  const button = document.querySelector("#discover-location-button");
+  button.disabled = true;
+  navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+    try {
+      await request("/profiles/me/location", {
+        method: "PUT",
+        body: JSON.stringify({ latitude: coords.latitude, longitude: coords.longitude })
+      });
+      notify(message, "Đã lưu vị trí riêng tư. Bạn có thể lọc theo khoảng cách.", true);
+    } catch (error) {
+      notify(message, error.message);
+    } finally {
+      button.disabled = false;
+    }
+  }, (error) => {
+    const detail = error.code === error.PERMISSION_DENIED ? "Bạn chưa cho phép truy cập vị trí." : "Không thể lấy vị trí hiện tại.";
+    notify(message, detail);
+    button.disabled = false;
+  }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
 }
 
 function fillProfile() {
@@ -715,14 +1257,14 @@ async function swipe(event) {
   try {
     const result = await request("/swipes", {
       method: "POST",
-      body: JSON.stringify({ targetUserId: card.dataset.profileId, isLike: button.dataset.swipe === "true" })
+      body: JSON.stringify({ targetUserId: card.dataset.profileId, isLike: button.dataset.swipe === "true", isSuperLike: button.dataset.superLike === "true" })
     });
     appState.discoverProfiles = appState.discoverProfiles.filter((profile) => profile.id !== card.dataset.profileId);
     renderDiscoverPage();
     if (result.isLike) await loadLikedProfiles();
     else await loadRejectedProfiles();
     if (result.isMatch) {
-      notify(document.querySelector("#discover-message"), "Hai bạn đã thích nhau! Đã có một người bạn mới.", true);
+      notify(document.querySelector("#discover-message"), result.isSuperLike ? "Super Like đã tạo kết đôi!" : "Hai bạn đã thích nhau! Đã có một người bạn mới.", true);
     }
   } catch (error) {
     buttons.forEach((item) => { item.disabled = false; });
@@ -779,6 +1321,26 @@ async function undoPass(event) {
 }
 
 async function openChatFromMatch(event) {
+  const dateButton = event.target.closest("[data-invite-date]");
+  if (dateButton && document.querySelector("#matches-page").contains(dateButton)) {
+    appState.pendingDateRecipientId = dateButton.dataset.inviteDate;
+    showPage("dates");
+    return;
+  }
+  const unmatchButton = event.target.closest("[data-unmatch]");
+  if (unmatchButton && document.querySelector("#matches-page").contains(unmatchButton)) {
+    if (!window.confirm("Bạn có chắc muốn hủy kết đôi này không?")) return;
+    unmatchButton.disabled = true;
+    try {
+      await request(`/matches/${unmatchButton.dataset.unmatch}`, { method: "DELETE" });
+      await loadLikedProfiles();
+      await loadChatContacts();
+    } catch (error) {
+      unmatchButton.disabled = false;
+      notify(document.querySelector("#discover-message"), error.message);
+    }
+    return;
+  }
   const button = event.target.closest("[data-open-chat]");
   if (!button || !document.querySelector("#matches-page").contains(button)) return;
   chatState.pendingUserId = button.dataset.openChat;
@@ -824,7 +1386,7 @@ function renderChatContacts() {
     const initials = (name || "K").trim().charAt(0).toUpperCase();
     return `<button class="chat-contact ${chatState.activeUserId === profile.id ? "is-active" : ""}" data-chat-user="${profile.id}" type="button">
       ${image ? `<img class="chat-contact-avatar" src="${escapeHtml(image)}" alt="">` : `<span class="chat-contact-avatar chat-contact-initial">${escapeHtml(initials)}</span>`}
-      <span class="chat-contact-copy"><strong>${escapeHtml(name)}</strong><small>Nhấn để trò chuyện</small></span><span class="chat-contact-arrow" aria-hidden="true">›</span>
+      <span class="chat-contact-copy"><strong>${escapeHtml(name)}</strong><small>${profile.isOnline ? '<span class="online-dot" aria-hidden="true"></span> Đang hoạt động' : "Nhấn để trò chuyện"}</small></span><span class="chat-contact-arrow" aria-hidden="true">›</span>
     </button>`;
   }).join("");
 }
@@ -846,6 +1408,7 @@ async function selectChatContact(userId) {
   document.querySelector("#chat-form").hidden = false;
   const name = cleanProfileName(profile.name);
   document.querySelector("#chat-peer-name").textContent = name;
+  document.querySelector("#chat-peer-block").dataset.blockUser = userId;
   const avatar = profile.photos?.find((photo) => photo.isAvatar) || profile.photos?.[0];
   const image = photoUrl(avatar?.url);
   const avatarElement = document.querySelector("#chat-peer-avatar");
@@ -920,7 +1483,7 @@ async function loadChatMessages(scrollToLatest = false) {
   try {
     const messages = await request(`/chat/${conversationId}/messages`);
     if (chatState.activeUserId !== conversationId) return;
-    const key = messages.map((message) => message.id).join("|");
+    const key = messages.map((message) => `${message.id}:${message.content}:${message.isRead}:${message.isRevoked}`).join("|");
     if (key === chatState.lastMessageKey) return;
     chatState.messages = messages;
     await Promise.all(messages.map(loadChatAttachment));
@@ -942,7 +1505,7 @@ function renderChatMessages(scrollToLatest) {
 
   container.innerHTML = chatState.messages.map((message) => {
     const mediaUrl = chatState.mediaUrls.get(message.id);
-    const mediaMarkup = message.mediaUrl
+    const mediaMarkup = !message.isRevoked && message.mediaUrl
       ? mediaUrl
         ? message.mediaType?.startsWith("video/")
           ? `<video class="chat-message-media" src="${escapeHtml(mediaUrl)}" controls playsinline preload="metadata"></video>`
@@ -951,10 +1514,31 @@ function renderChatMessages(scrollToLatest) {
       : "";
     const time = new Date(message.sentAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
     return `<article class="chat-message-row ${message.isMine ? "is-mine" : ""}" data-chat-message="${message.id}">
-      <div class="chat-message-bubble">${message.content ? `<p>${escapeHtml(message.content)}</p>` : ""}${mediaMarkup}<time>${time}</time></div>
+      <div class="chat-message-bubble ${message.isRevoked ? "is-revoked" : ""}">${message.content ? `<p>${escapeHtml(message.content)}</p>` : ""}${mediaMarkup}<time>${time}${message.isMine ? (message.isRead ? " · Đã xem" : " · Đã gửi") : ""}</time>
+      <div class="chat-message-actions">${message.canRecall ? `<button type="button" data-recall-message="${message.id}">Thu hồi</button>` : ""}<button type="button" data-hide-message="${message.id}">Xóa ở phía tôi</button>${!message.isMine ? `<button type="button" data-report-message="${message.id}">Báo cáo</button>` : ""}</div></div>
     </article>`;
   }).join("");
   if (scrollToLatest) container.scrollTop = container.scrollHeight;
+}
+
+async function manageChatMessage(event) {
+  const recallButton = event.target.closest("[data-recall-message]");
+  const hideButton = event.target.closest("[data-hide-message]");
+  const button = recallButton || hideButton;
+  if (!button) return;
+  button.disabled = true;
+  try {
+    if (recallButton) {
+      await request(`/chat/messages/${button.dataset.recallMessage}/recall`, { method: "POST" });
+    } else {
+      await request(`/chat/messages/${button.dataset.hideMessage}`, { method: "DELETE" });
+    }
+    chatState.lastMessageKey = null;
+    await loadChatMessages(false);
+  } catch (error) {
+    button.disabled = false;
+    notify(document.querySelector("#chat-status"), error.message);
+  }
 }
 
 function updateChatFileName() {
@@ -964,6 +1548,43 @@ function updateChatFileName() {
   const file = input.files?.[0];
   label.textContent = file ? file.name : "Tối đa 8 MB cho ảnh, 20 MB cho video";
   clearButton.hidden = !file;
+}
+
+function toggleChatGiftPicker() {
+  const picker = document.querySelector("#chat-gift-picker");
+  picker.hidden = !picker.hidden;
+  document.querySelector("#chat-suggestion-picker").hidden = true;
+}
+
+function sendChatGift(event) {
+  const button = event.target.closest("[data-chat-gift]");
+  if (!button) return;
+  document.querySelector("#chat-gift-picker").hidden = true;
+  document.querySelector("#chat-content").value = `🎁 Gửi tặng bạn: ${button.dataset.chatGift}!`;
+  document.querySelector("#chat-form").requestSubmit();
+}
+
+function showChatSuggestions() {
+  if (!chatState.activeUserId) return;
+  const picker = document.querySelector("#chat-suggestion-picker");
+  picker.hidden = !picker.hidden;
+  document.querySelector("#chat-gift-picker").hidden = true;
+  if (picker.hidden) return;
+  const profile = chatState.contacts.find((item) => item.id === chatState.activeUserId);
+  const name = cleanProfileName(profile?.name || "bạn");
+  const sharedInterest = (profile?.interests || []).find((interest) => appState.profile?.interests?.some((mine) => mine.id === interest.id));
+  const suggestions = sharedInterest
+    ? [`Chào ${name}! Mình thấy chúng ta cùng thích ${sharedInterest.name}. Bạn bắt đầu sở thích đó từ khi nào?`, `Bạn thường thích làm gì nhất liên quan đến ${sharedInterest.name}?`, `Cuối tuần này bạn muốn thử hoạt động nào mới?`]
+    : [`Chào ${name}! Điều gì làm bạn vui nhất hôm nay?`, `Nếu cuối tuần được đi đâu đó, bạn sẽ chọn nơi nào?`, `Gần đây bạn có bộ phim hay món ăn nào muốn giới thiệu không?`];
+  picker.innerHTML = suggestions.map((suggestion) => `<button type="button" data-chat-suggestion="${escapeHtml(suggestion)}">${escapeHtml(suggestion)}</button>`).join("");
+}
+
+function selectChatSuggestion(event) {
+  const button = event.target.closest("[data-chat-suggestion]");
+  if (!button) return;
+  document.querySelector("#chat-content").value = button.dataset.chatSuggestion;
+  document.querySelector("#chat-suggestion-picker").hidden = true;
+  document.querySelector("#chat-content").focus();
 }
 
 function insertChatEmoji(event) {
@@ -1066,6 +1687,7 @@ async function submitJourneyPost(event) {
 
 async function loadJourney() {
   const feed = document.querySelector("#journey-feed");
+  await loadStories();
   try {
     const posts = await request("/journey?limit=20");
     if (!posts.length) {
@@ -1083,7 +1705,7 @@ async function loadJourney() {
         : "";
       const deleteButton = post.isMine
         ? `<button class="journey-delete" data-journey-delete="${post.id}" type="button">Xóa</button>`
-        : "";
+        : `<div class="journey-moderation-actions"><button type="button" data-report-user="${post.userId}" data-user-name="${escapeHtml(authorName)}">Báo cáo người dùng</button><button type="button" data-block-user="${post.userId}" data-user-name="${escapeHtml(authorName)}">Chặn</button></div>`;
       const likeLabel = post.isLikedByMe ? "Đã thích" : "Thích";
       const initials = (authorName || "K").trim().charAt(0).toUpperCase();
       return `
@@ -1101,12 +1723,17 @@ async function loadJourney() {
           <footer class="journey-actions">
             <button class="journey-action-button ${post.isLikedByMe ? "is-liked" : ""}" data-journey-like="${post.id}" type="button">${likeLabel} (${post.likesCount ?? 0})</button>
             <button class="journey-action-button" data-journey-comment-toggle="${post.id}" type="button">Bình luận (${post.commentsCount ?? 0})</button>
+            <button class="journey-action-button" data-share-post="${post.id}" type="button">Chia sẻ</button>
+            ${post.isMine ? "" : `<button class="journey-action-button" data-report-post="${post.id}" type="button">Báo cáo bài viết</button>`}
           </footer>
           <div class="journey-comment-box" data-journey-comments="${post.id}" hidden>
             <div class="journey-comments" data-journey-comment-list="${post.id}"></div>
             <form class="journey-comment-form" data-journey-comment-form="${post.id}">
+              <p class="journey-replying-to" data-replying-to="${post.id}" hidden></p>
+              <input type="hidden" name="parentCommentId">
               <input name="content" maxlength="500" placeholder="Viết bình luận..." required>
               <button type="submit">Gửi</button>
+              <button class="journey-cancel-reply" data-cancel-reply="${post.id}" type="button" hidden>Hủy trả lời</button>
             </form>
           </div>
         </article>`;
@@ -1133,9 +1760,9 @@ async function loadJourneyComments(postId) {
     const comments = await request(`/journey/${postId}/comments`);
     list.innerHTML = comments.length
       ? comments.map((comment) => `
-          <div class="journey-comment-item">
+          <div class="journey-comment-item ${comment.parentCommentId ? "is-reply" : ""}" data-comment-id="${comment.id}">
             <strong>${escapeHtml(cleanProfileName(comment.authorName))}</strong>
-            <span>${escapeHtml(comment.content)}</span>
+            <span>${escapeHtml(comment.content)}</span>${comment.userId !== appState.profile?.id ? `<button type="button" data-reply-comment="${comment.id}" data-reply-author="${escapeHtml(comment.authorName)}" data-reply-post="${postId}">Trả lời</button><button type="button" data-report-comment="${comment.id}">Báo cáo</button>` : ""}
           </div>`).join("")
       : '<p class="journey-empty-comment">Chưa có bình luận nào.</p>';
   } catch (error) {
@@ -1158,17 +1785,98 @@ async function submitJourneyComment(event) {
   const form = event.currentTarget;
   const postId = form.dataset.journeyCommentForm;
   const content = new FormData(form).get("content");
+  const parentCommentId = form.elements.parentCommentId.value || null;
   if (!content || !String(content).trim()) return;
   try {
     await request(`/journey/${postId}/comments`, {
       method: "POST",
-      body: JSON.stringify({ content: String(content).trim() })
+      body: JSON.stringify({ content: String(content).trim(), parentCommentId })
     });
     form.reset();
+    resetJourneyReply(postId);
     await loadJourney();
     const box = document.querySelector(`[data-journey-comments="${postId}"]`);
     if (box) box.hidden = false;
     notify(document.querySelector("#journey-message"), "Bình luận đã được gửi.", true);
+  } catch (error) {
+    notify(document.querySelector("#journey-message"), error.message);
+  }
+}
+
+function prepareJourneyReply(button) {
+  const postId = button.dataset.replyPost;
+  const form = document.querySelector(`[data-journey-comment-form="${postId}"]`);
+  if (!form) return;
+  form.elements.parentCommentId.value = button.dataset.replyComment;
+  form.elements.content.placeholder = `Trả lời ${button.dataset.replyAuthor}...`;
+  const label = form.querySelector(`[data-replying-to="${postId}"]`);
+  label.textContent = `Đang trả lời ${button.dataset.replyAuthor}`;
+  label.hidden = false;
+  form.querySelector(`[data-cancel-reply="${postId}"]`).hidden = false;
+  form.elements.content.focus();
+}
+
+function resetJourneyReply(postId) {
+  const form = document.querySelector(`[data-journey-comment-form="${postId}"]`);
+  if (!form) return;
+  form.elements.parentCommentId.value = "";
+  form.elements.content.placeholder = "Viết bình luận...";
+  form.querySelector(`[data-replying-to="${postId}"]`).hidden = true;
+  form.querySelector(`[data-cancel-reply="${postId}"]`).hidden = true;
+}
+
+async function shareJourneyPost(postId) {
+  const card = document.querySelector(`[data-journey-post-id="${CSS.escape(postId)}"]`);
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.searchParams.set("post", postId);
+  const description = card?.querySelector(".journey-content")?.textContent || "Xem bài viết trên Kiss";
+  try {
+    if (navigator.share) await navigator.share({ title: "Bài viết trên Kiss", text: description, url: url.toString() });
+    else {
+      await navigator.clipboard.writeText(url.toString());
+      notify(document.querySelector("#journey-message"), "Đã sao chép liên kết bài viết.", true);
+    }
+  } catch (error) {
+    if (error.name !== "AbortError") notify(document.querySelector("#journey-message"), "Không thể chia sẻ liên kết trên thiết bị này.");
+  }
+}
+
+async function loadStories() {
+  const container = document.querySelector("#story-list");
+  try {
+    const stories = await request("/stories");
+    container.innerHTML = stories.length ? stories.map((story) => `
+      <article class="story-card">
+        <header><strong>${escapeHtml(cleanProfileName(story.authorName))}</strong><time>Hết hạn ${new Date(story.expiresAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</time></header>
+        <p>${escapeHtml(story.content)}</p>
+        ${story.isMine ? `<button type="button" data-delete-story="${story.id}">Xóa story</button>` : ""}
+      </article>`).join("") : '<p class="session-empty">Story của bạn và người đã kết đôi sẽ xuất hiện ở đây.</p>';
+  } catch (error) {
+    container.innerHTML = `<p class="session-empty">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+async function submitStory(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const content = form.elements.content.value.trim();
+  if (!content) return;
+  try {
+    await request("/stories", { method: "POST", body: JSON.stringify({ content }) });
+    form.reset();
+    await loadStories();
+  } catch (error) {
+    notify(document.querySelector("#journey-message"), error.message);
+  }
+}
+
+async function manageStory(event) {
+  const button = event.target.closest("[data-delete-story]");
+  if (!button) return;
+  try {
+    await request(`/stories/${button.dataset.deleteStory}`, { method: "DELETE" });
+    await loadStories();
   } catch (error) {
     notify(document.querySelector("#journey-message"), error.message);
   }
@@ -1188,6 +1896,7 @@ async function deleteJourneyPost(event) {
 }
 
 function logout() {
+  stopPresenceHeartbeat();
   stopChatPolling();
   stopSocialPolling();
   clearChatMediaUrls();
@@ -1210,10 +1919,30 @@ async function startApp() {
   document.querySelector("#register-tab").addEventListener("click", () => setAuthMode("register"));
   authForm.addEventListener("submit", submitAuth);
   document.querySelector("#discover-filters").addEventListener("submit", (event) => { event.preventDefault(); loadDiscover(); });
+  document.querySelector("#discover-location-button").addEventListener("click", updateDiscoveryLocation);
   document.querySelector("#profile-form").addEventListener("submit", saveProfile);
+  document.querySelector("#profile-tips-button").addEventListener("click", suggestProfileImprovements);
+  document.querySelector("#privacy-form").addEventListener("submit", savePrivacySettings);
+  document.querySelector("#notification-preferences-form").addEventListener("submit", saveNotificationPreferences);
+  document.querySelector("#notification-list").addEventListener("click", manageNotifications);
+  document.querySelector("#mark-all-notifications-read").addEventListener("click", markAllNotificationsRead);
+  document.querySelector("#enable-browser-notifications").addEventListener("click", enableBrowserNotifications);
+  document.querySelector("#date-invitation-form").addEventListener("submit", submitDateInvitation);
+  document.querySelector("#date-list").addEventListener("click", manageDateInvitation);
+  document.querySelector("#date-list").addEventListener("submit", submitDateReview);
+  document.querySelector("#dates-refresh").addEventListener("click", loadDates);
+  document.querySelector("#community-event-form").addEventListener("submit", submitCommunityEvent);
+  document.querySelector("#community-event-list").addEventListener("click", manageCommunityEvent);
+  document.querySelector("#community-events-refresh").addEventListener("click", loadCommunityEvents);
+  document.querySelector("#change-password-form").addEventListener("submit", submitPasswordChange);
+  document.querySelector("#request-email-code").addEventListener("click", requestEmailVerificationCode);
+  document.querySelector("#email-verification-form").addEventListener("submit", submitEmailVerification);
+  document.querySelector("#session-list").addEventListener("click", manageSessions);
+  document.querySelector("#revoke-other-sessions").addEventListener("click", revokeOtherSessions);
   document.querySelector("#photo-form").addEventListener("submit", uploadPhoto);
   document.querySelector("#photo-list").addEventListener("click", managePhoto);
   document.querySelector("#discover-results").addEventListener("click", swipe);
+  document.querySelector("#chat-messages").addEventListener("click", manageChatMessage);
   document.querySelector("#discover-pagination").addEventListener("click", (event) => {
     const button = event.target.closest("[data-discover-step]");
     if (!button || button.disabled) return;
@@ -1246,6 +1975,10 @@ async function startApp() {
     event.currentTarget.setAttribute("aria-expanded", String(!picker.hidden));
   });
   document.querySelector("#chat-emoji-picker").addEventListener("click", insertChatEmoji);
+  document.querySelector("#chat-gift-toggle").addEventListener("click", toggleChatGiftPicker);
+  document.querySelector("#chat-gift-picker").addEventListener("click", sendChatGift);
+  document.querySelector("#chat-suggestion-toggle").addEventListener("click", showChatSuggestions);
+  document.querySelector("#chat-suggestion-picker").addEventListener("click", selectChatSuggestion);
   document.querySelector("#chat-content").addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
@@ -1253,9 +1986,44 @@ async function startApp() {
     }
   });
   document.querySelector("#journey-form").addEventListener("submit", submitJourneyPost);
+  document.querySelector("#story-form").addEventListener("submit", submitStory);
+  document.querySelector("#story-list").addEventListener("click", manageStory);
   document.querySelector("#journey-media").addEventListener("change", updateJourneyPreview);
   document.querySelector("#journey-refresh").addEventListener("click", loadJourney);
   document.querySelector("#journey-feed").addEventListener("click", deleteJourneyPost);
+  document.querySelector("#journey-feed").addEventListener("click", (event) => {
+    const reportUser = event.target.closest("[data-report-user]");
+    const block = event.target.closest("[data-block-user]");
+    const reportPost = event.target.closest("[data-report-post]");
+    const reportComment = event.target.closest("[data-report-comment]");
+    const replyComment = event.target.closest("[data-reply-comment]");
+    const cancelReply = event.target.closest("[data-cancel-reply]");
+    const sharePost = event.target.closest("[data-share-post]");
+    if (reportUser) reportContent("User", reportUser.dataset.reportUser);
+    else if (block) blockUser(block.dataset.blockUser, block.dataset.userName);
+    else if (reportPost) reportContent("Post", reportPost.dataset.reportPost);
+    else if (reportComment) reportContent("Comment", reportComment.dataset.reportComment);
+    else if (replyComment) prepareJourneyReply(replyComment);
+    else if (cancelReply) resetJourneyReply(cancelReply.dataset.cancelReply);
+    else if (sharePost) shareJourneyPost(sharePost.dataset.sharePost);
+  });
+  document.querySelector("#chat-messages").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-report-message]");
+    if (button) reportContent("Message", button.dataset.reportMessage);
+  });
+  document.querySelector("#chat-peer-block").addEventListener("click", (event) => blockUser(event.currentTarget.dataset.blockUser, document.querySelector("#chat-peer-name").textContent));
+  document.querySelector("#dating-app").addEventListener("click", (event) => {
+    const card = event.target.closest(".person-card");
+    if (!card) return;
+    const report = event.target.closest("[data-report-user]");
+    const block = event.target.closest("[data-block-user]");
+    if (report) reportContent("User", report.dataset.reportUser);
+    if (block) blockUser(block.dataset.blockUser, block.dataset.userName);
+  });
+  document.querySelector("#blocked-users").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-unblock-user]");
+    if (button) unblockUser(button.dataset.unblockUser);
+  });
   document.querySelector("#people-search-form").addEventListener("submit", (event) => { event.preventDefault(); loadConnections(event.currentTarget.elements.q.value.trim()); });
   document.querySelector("#connections-page").addEventListener("click", manageConnection);
   document.querySelector("#conversation-list").addEventListener("click", (event) => {
@@ -1273,14 +2041,19 @@ async function startApp() {
     }
   });
   document.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => showPage(button.dataset.page)));
-  document.querySelector("#logout-button").addEventListener("click", logout);
+  document.querySelector("#logout-button").addEventListener("click", async () => {
+    try { await request("/auth/logout", { method: "POST" }); } catch { /* Clear local credentials even if the network is unavailable. */ }
+    logout();
+  });
   document.querySelector("#forgot-password-link").addEventListener("click", showForgotPassword);
   document.querySelector("#forgot-password-back").addEventListener("click", () => setAuthMode("login"));
   document.querySelector("#reset-password-back").addEventListener("click", () => setAuthMode("login"));
   forgotPasswordForm.addEventListener("submit", submitForgotPassword);
   resetPasswordForm.addEventListener("submit", submitResetPassword);
   document.querySelector("#admin-refresh").addEventListener("click", loadAdminOverview);
+  document.querySelector("#admin-reports-refresh").addEventListener("click", loadAdminOverview);
   document.querySelector("#admin-export").addEventListener("click", exportAdminData);
+  document.querySelector("#admin-announcement-form").addEventListener("submit", sendSystemAnnouncement);
   document.querySelector("#admin-user-form").addEventListener("submit", submitAdminUser);
   document.querySelector("#admin-user-cancel").addEventListener("click", resetAdminUserForm);
   document.querySelector("#admin-users").addEventListener("click", (event) => {
@@ -1291,6 +2064,12 @@ async function startApp() {
     }
     const deleteButton = event.target.closest("[data-admin-delete]");
     if (deleteButton && !deleteButton.disabled) deleteAdminUser(deleteButton.dataset.adminDelete);
+  });
+  document.querySelector("#admin-reports").addEventListener("click", (event) => {
+    const resolve = event.target.closest("[data-report-resolve]");
+    const dismiss = event.target.closest("[data-report-dismiss]");
+    if (resolve) updateAdminReport(resolve.dataset.reportResolve, true);
+    if (dismiss) updateAdminReport(dismiss.dataset.reportDismiss, false);
   });
 
   const resetUrl = new URL(window.location.href);

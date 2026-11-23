@@ -32,6 +32,7 @@ builder.Services.AddDbContext<DatingDbContext>(options =>
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
+builder.Services.AddScoped<IEmailVerificationService, EmailVerificationService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddSingleton<PasswordResetEmailQueue>();
 builder.Services.AddSingleton<IPasswordResetEmailQueue>(serviceProvider =>
@@ -42,6 +43,11 @@ builder.Services.AddScoped<IDatingService, DatingService>();
 builder.Services.AddScoped<IJourneyService, JourneyService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<SocialService>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<DateService>();
+builder.Services.AddScoped<SafetyService>();
+builder.Services.AddScoped<CommunityEventService>();
+builder.Services.AddHostedService<DateReminderService>();
 builder.Services
 	.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 	.AddJwtBearer(options =>
@@ -57,6 +63,26 @@ builder.Services
 			ValidateLifetime = true,
 			ClockSkew = TimeSpan.FromSeconds(30)
 		};
+		options.Events = new JwtBearerEvents
+		{
+			OnTokenValidated = async context =>
+			{
+				var principal = context.Principal;
+				if (!Guid.TryParse(principal?.FindFirst("sid")?.Value, out var sessionId)
+					|| !Guid.TryParse(principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId))
+				{
+					context.Fail("The login session is invalid.");
+					return;
+				}
+
+				var database = context.HttpContext.RequestServices.GetRequiredService<DatingDbContext>();
+				var active = await database.UserSessions.AnyAsync(session =>
+					session.Id == sessionId && session.UserId == userId && session.RevokedAt == null,
+					context.HttpContext.RequestAborted);
+				var notSuspended = await database.Users.AnyAsync(user => user.Id == userId && !user.IsSuspended, context.HttpContext.RequestAborted);
+				if (!active || !notSuspended) context.Fail("The login session has been revoked.");
+			}
+		};
 	});
 var configuredAdminUserIds = builder.Configuration.GetSection("Admin:UserIds").Get<Guid[]>() ?? [];
 builder.Services.AddAuthorization(options =>
@@ -66,6 +92,21 @@ builder.Services.AddAuthorization(options =>
 		.RequireAssertion(context =>
 			Guid.TryParse(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId)
 			&& configuredAdminUserIds.Contains(userId)));
+	options.AddPolicy("AdminStaff", policy => policy
+		.RequireAuthenticatedUser()
+		.RequireAssertion(context =>
+			Guid.TryParse(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId)
+			&& (configuredAdminUserIds.Contains(userId)
+				|| context.User.IsInRole("Admin")
+				|| context.User.IsInRole("Moderator")
+				|| context.User.IsInRole("Support"))));
+	options.AddPolicy("AdminModeration", policy => policy
+		.RequireAuthenticatedUser()
+		.RequireAssertion(context =>
+			Guid.TryParse(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId)
+			&& (configuredAdminUserIds.Contains(userId)
+				|| context.User.IsInRole("Admin")
+				|| context.User.IsInRole("Moderator"))));
 });
 builder.Services.AddRateLimiter(options =>
 {
@@ -79,6 +120,15 @@ builder.Services.AddRateLimiter(options =>
 			QueueLimit = 0,
 			AutoReplenishment = true
 		}));
+	options.AddPolicy("email-verification", context => System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+			context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+			_ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+			{
+				PermitLimit = 5,
+				Window = TimeSpan.FromMinutes(15),
+				QueueLimit = 0,
+				AutoReplenishment = true
+			}));
 });
 
 var app = builder.Build();
@@ -107,6 +157,10 @@ app.MapJourneyEndpoints();
 app.MapChatEndpoints();
 app.MapAdminEndpoints();
 app.MapSocialEndpoints();
+app.MapNotificationEndpoints();
+app.MapDateEndpoints();
+app.MapSafetyEndpoints();
+app.MapCommunityEventEndpoints();
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
