@@ -323,6 +323,7 @@ async function sendSystemAnnouncement(event) {
     });
     form.reset();
     notify(document.querySelector("#admin-announcement-message"), `Đã gửi thông báo đến ${result.recipientCount} tài khoản.`, true);
+    await loadNotifications();
     await loadAdminOverview();
   } catch (error) {
     notify(document.querySelector("#admin-announcement-message"), error.message);
@@ -796,25 +797,30 @@ async function saveNotificationPreferences(event) {
 }
 
 async function loadNotifications() {
-  const notifications = await request("/notifications?limit=100");
-  if (appState.notificationsInitialized && "Notification" in window && Notification.permission === "granted") {
-    for (const item of notifications) {
-      if (!appState.notificationIds.has(item.id) && !item.readAt) new Notification(item.title, { body: item.body, tag: item.id });
+  try {
+    const notifications = await request("/notifications?limit=100", { cache: "no-store" });
+    if (appState.notificationsInitialized && "Notification" in window && Notification.permission === "granted") {
+      for (const item of notifications) {
+        if (!appState.notificationIds.has(item.id) && !item.readAt) new Notification(item.title, { body: item.body, tag: item.id });
+      }
     }
+    appState.notificationsInitialized = true;
+    appState.notifications = notifications;
+    appState.notificationIds = new Set(notifications.map((item) => item.id));
+    const unread = notifications.filter((item) => !item.readAt).length;
+    document.querySelector("#notification-count").textContent = unread;
+    renderNotifications();
+  } catch (error) {
+    notify(document.querySelector("#notification-list"), `Không tải được thông báo: ${error.message}. Hãy thử làm mới.`, false);
   }
-  appState.notificationsInitialized = true;
-  appState.notifications = notifications;
-  appState.notificationIds = new Set(notifications.map((item) => item.id));
-  const unread = notifications.filter((item) => !item.readAt).length;
-  document.querySelector("#notification-count").textContent = unread;
-  renderNotifications();
 }
 
 function renderNotifications() {
   const list = document.querySelector("#notification-list");
+  const typeLabels = { Like: "Lượt thích", SuperLike: "Super Like", Match: "Kết đôi", Chat: "Tin nhắn", Comment: "Bình luận", Date: "Lịch hẹn", System: "Hệ thống" };
   list.innerHTML = appState.notifications.length ? appState.notifications.map((item) => `
     <article class="notification-card ${item.readAt ? "is-read" : "is-unread"}">
-      <div><span class="notification-type">${escapeHtml(item.type)}</span><h2>${escapeHtml(item.title)}</h2><p>${escapeHtml(item.body)}</p><time>${new Date(item.createdAt).toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })}</time></div>
+      <div><span class="notification-type">${escapeHtml(typeLabels[item.type] || item.type)}</span><h2>${escapeHtml(item.title)}</h2><p>${escapeHtml(item.body)}</p><time>${new Date(item.createdAt).toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })}</time></div>
       ${item.readAt ? "" : `<button type="button" data-mark-notification="${item.id}">Đánh dấu đã đọc</button>`}
     </article>`).join("") : '<p class="empty-message">Chưa có thông báo mới.</p>';
 }
@@ -1925,6 +1931,7 @@ async function startApp() {
   document.querySelector("#privacy-form").addEventListener("submit", savePrivacySettings);
   document.querySelector("#notification-preferences-form").addEventListener("submit", saveNotificationPreferences);
   document.querySelector("#notification-list").addEventListener("click", manageNotifications);
+  document.querySelector("#refresh-notifications").addEventListener("click", loadNotifications);
   document.querySelector("#mark-all-notifications-read").addEventListener("click", markAllNotificationsRead);
   document.querySelector("#enable-browser-notifications").addEventListener("click", enableBrowserNotifications);
   document.querySelector("#date-invitation-form").addEventListener("submit", submitDateInvitation);
