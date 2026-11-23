@@ -223,6 +223,7 @@ function showPage(page) {
   for (const id of ["discover", "journey", "profile", "matches", "passed", "notifications", "dates", "events", "chat", "connections", "messages", "admin"]) {
     document.getElementById(`${id}-page`).hidden = id !== page;
   }
+  window.scrollTo(0, 0);
   document.querySelectorAll("[data-page]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.page === page);
   });
@@ -879,7 +880,7 @@ async function loadDates() {
       return `<article class="date-card"><header><div><span class="date-status">${escapeHtml(statusLabels[date.status] || date.status)}</span><h3>${escapeHtml(date.venueName)}</h3></div><strong>${escapeHtml(date.otherUserName)}</strong></header><p class="date-time">${startsAt.toLocaleString("vi-VN", { dateStyle: "full", timeStyle: "short" })}</p>${date.venueAddress ? `<p>${escapeHtml(date.venueAddress)}</p>` : ""}${safeUrl ? `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noreferrer">Mở địa điểm</a>` : ""}${date.message ? `<p class="date-message">${escapeHtml(date.message)}</p>` : ""}<div class="date-card-actions">${actions}</div>${reviewForm}<div class="date-reviews">${reviews}</div></article>`;
     }).join("") : '<p class="empty-message">Chưa có lời mời hẹn hò. Bạn có thể gửi lời mời cho người đã kết đôi với mình.</p>';
   } catch (error) {
-    notify(document.querySelector("#date-form-message"), error.message);
+    notify(list, `Không tải được lịch hẹn: ${error.message}`);
   }
 }
 
