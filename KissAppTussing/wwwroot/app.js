@@ -6,7 +6,7 @@ const resetPasswordForm = document.querySelector("#reset-password-form");
 const appView = document.querySelector("#dating-app");
 const authMessage = document.querySelector("#auth-message");
 const authButton = document.querySelector("#auth-submit");
-const appState = { token: localStorage.getItem("kiss.accessToken"), profile: null, interests: [], resetToken: null, connections: [], conversations: [], selectedConversationId: null, chatPoll: null, presenceTimer: null, notifications: [], notificationIds: new Set(), notificationsInitialized: false, pendingDateRecipientId: null, discoverProfiles: [], discoverPage: 1, discoverPageSize: 30, adminUsers: [], adminReports: [], canModerateReports: false };
+const appState = { token: localStorage.getItem("kiss.accessToken"), profile: null, interests: [], resetToken: null, connections: [], conversations: [], selectedConversationId: null, chatPoll: null, presenceTimer: null, notifications: [], notificationIds: new Set(), notificationsInitialized: false, pendingDateRecipientId: null, discoverProfiles: [], discoverPage: 1, discoverPageSize: 30, adminUsers: [], adminReports: [], canModerateReports: false, isOwner: false };
 const chatState = {
   contacts: [],
   activeUserId: null,
@@ -220,6 +220,7 @@ async function enterWorkspace() {
 }
 
 function showPage(page) {
+  if (page === "events" && !appState.isOwner) page = "notifications";
   for (const id of ["discover", "journey", "profile", "matches", "passed", "notifications", "dates", "events", "chat", "connections", "messages", "admin"]) {
     document.getElementById(`${id}-page`).hidden = id !== page;
   }
@@ -264,6 +265,8 @@ async function loadAdminOverview() {
     const access = await request("/admin/access");
     nav.hidden = false;
     const isOwner = Boolean(access.isOwner);
+    appState.isOwner = isOwner;
+    document.querySelector("#events-nav").hidden = !isOwner;
     appState.canModerateReports = Boolean(access.canModerate || isOwner);
     document.querySelector("#admin-stat-grid").hidden = !isOwner;
     document.querySelector("#admin-user-form").closest(".admin-users-panel").hidden = !isOwner;
@@ -290,7 +293,10 @@ async function loadAdminOverview() {
     appState.adminReports = reports;
     document.querySelector("#admin-message").hidden = true;
   } catch {
-    nav.hidden = true;
+    if (!appState.isOwner) {
+      document.querySelector("#events-nav").hidden = true;
+      nav.hidden = true;
+    }
   }
 }
 
@@ -335,14 +341,18 @@ async function sendSystemAnnouncement(event) {
 
 function renderAdminReports(reports) {
   const container = document.querySelector("#admin-reports");
+  const pendingCount = reports.filter((report) => report.status === "Pending").length;
+  document.querySelector("#admin-reports-heading").textContent = `Báo cáo cần xử lý (${pendingCount})`;
   if (!reports.length) {
     container.innerHTML = '<p class="empty-message">Chưa có báo cáo nào.</p>';
     return;
   }
+  const targetTypeLabels = { User: "Tài khoản", Post: "Bài viết", Comment: "Bình luận", Message: "Tin nhắn" };
   container.innerHTML = reports.map((report) => `
     <article class="admin-report-card ${report.status === "Pending" ? "is-pending" : ""}">
       <div class="admin-report-copy">
-        <div><strong>${escapeHtml(report.targetType)} · ${escapeHtml(report.status)}</strong><small>Báo cáo bởi ${escapeHtml(report.reporterName)} · ${new Date(report.createdAt).toLocaleString("vi-VN")}</small></div>
+        <div><strong>${escapeHtml(targetTypeLabels[report.targetType] || report.targetType)} · ${escapeHtml(report.status)}</strong><small>Người tố cáo: ${escapeHtml(report.reporterName)} · ${new Date(report.createdAt).toLocaleString("vi-VN")}</small></div>
+        ${report.targetName ? `<p><b>Người bị báo cáo:</b> ${escapeHtml(report.targetName)}${report.targetIsSuspended ? " · Tài khoản đã bị khóa" : ""}</p>` : ""}
         <p>${escapeHtml(report.reason)}</p>
         <blockquote>${escapeHtml(report.targetPreview || "Không còn nội dung để xem")}</blockquote>
         <small>Mã nội dung: ${escapeHtml(report.targetId)}</small>
@@ -818,7 +828,7 @@ async function loadNotifications() {
 
 function renderNotifications() {
   const list = document.querySelector("#notification-list");
-  const typeLabels = { Like: "Lượt thích", SuperLike: "Super Like", Match: "Kết đôi", Chat: "Tin nhắn", Comment: "Bình luận", Date: "Lịch hẹn", System: "Hệ thống" };
+  const typeLabels = { Like: "Lượt thích", SuperLike: "Super Like", Match: "Kết đôi", Chat: "Tin nhắn", Comment: "Bình luận", Date: "Lịch hẹn", Event: "Sự kiện", System: "Hệ thống" };
   list.innerHTML = appState.notifications.length ? appState.notifications.map((item) => `
     <article class="notification-card ${item.readAt ? "is-read" : "is-unread"}">
       <div><span class="notification-type">${escapeHtml(typeLabels[item.type] || item.type)}</span><h2>${escapeHtml(item.title)}</h2><p>${escapeHtml(item.body)}</p><time>${new Date(item.createdAt).toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })}</time></div>
@@ -859,14 +869,25 @@ async function enableBrowserNotifications() {
 
 async function loadDates() {
   const list = document.querySelector("#date-list");
-  const recipientSelect = document.querySelector("#date-invitation-form").elements.recipientUserId;
+  const invitationForm = document.querySelector("#date-invitation-form");
+  const recipientSelect = invitationForm.elements.recipientUserId;
+  const isAdmin = appState.isOwner;
+  invitationForm.closest(".date-planning-grid").classList.toggle("is-admin", isAdmin);
+  invitationForm.hidden = isAdmin;
+  document.querySelector("#dates-description").textContent = isAdmin
+    ? "Toàn bộ lịch hẹn giữa các thành viên trong hệ thống."
+    : "Gửi lời mời đến người bạn đã kết đôi, chọn địa điểm và thời gian phù hợp.";
+  document.querySelector("#dates-list-heading").textContent = isAdmin ? "Tất cả lịch hẹn" : "Lời mời và lịch sắp tới";
   try {
-    const [dates, matches] = await Promise.all([request("/dates"), request("/matches")]);
-    recipientSelect.innerHTML = '<option value="">Chọn người</option>' + matches.map((match) =>
-      `<option value="${escapeHtml(match.profile.id)}">${escapeHtml(match.profile.name)}</option>`).join("");
-    if (appState.pendingDateRecipientId && matches.some((match) => match.profile.id === appState.pendingDateRecipientId)) {
-      recipientSelect.value = appState.pendingDateRecipientId;
-      appState.pendingDateRecipientId = null;
+    const dates = isAdmin ? await request("/admin/dates") : await request("/dates");
+    if (!isAdmin) {
+      const matches = await request("/matches");
+      recipientSelect.innerHTML = '<option value="">Chọn người</option>' + matches.map((match) =>
+        `<option value="${escapeHtml(match.profile.id)}">${escapeHtml(match.profile.name)}</option>`).join("");
+      if (appState.pendingDateRecipientId && matches.some((match) => match.profile.id === appState.pendingDateRecipientId)) {
+        recipientSelect.value = appState.pendingDateRecipientId;
+        appState.pendingDateRecipientId = null;
+      }
     }
     appState.dates = dates;
     const statusLabels = { Pending: "Chờ phản hồi", Accepted: "Đã xác nhận", Declined: "Đã từ chối", Cancelled: "Đã hủy" };
@@ -875,10 +896,11 @@ async function loadDates() {
       const isPast = startsAt <= new Date();
       const safeUrl = (() => { try { const url = new URL(date.venueUrl); return ["http:", "https:"].includes(url.protocol) ? url.href : ""; } catch { return ""; } })();
       const reviews = date.reviews.map((review) => `<div class="date-review"><strong>${escapeHtml(review.reviewerName)}</strong><span>${"★".repeat(review.rating)}${"☆".repeat(5 - review.rating)}</span><p>${escapeHtml(review.comment || "Không có nhận xét.")}</p></div>`).join("");
-      const actions = `${!date.isOrganizer && date.status === "Pending" ? `<button type="button" data-date-action="accept" data-date-id="${date.id}">Đồng ý</button><button type="button" data-date-action="decline" data-date-id="${date.id}">Từ chối</button>` : ""}${["Pending", "Accepted"].includes(date.status) ? `<button type="button" class="cancel-date-button" data-cancel-date="${date.id}">Hủy lịch</button>` : ""}`;
-      const reviewForm = date.status === "Accepted" && isPast && !date.hasReviewed ? `<form class="date-review-form" data-date-review="${date.id}"><label class="field"><span>Đánh giá buổi hẹn</span><select name="rating"><option value="5">5 sao</option><option value="4">4 sao</option><option value="3">3 sao</option><option value="2">2 sao</option><option value="1">1 sao</option></select></label><label class="field"><span>Nhận xét</span><input name="comment" maxlength="500" placeholder="Chia sẻ cảm nhận"></label><button class="quiet-button" type="submit">Gửi đánh giá</button></form>` : "";
-      return `<article class="date-card"><header><div><span class="date-status">${escapeHtml(statusLabels[date.status] || date.status)}</span><h3>${escapeHtml(date.venueName)}</h3></div><strong>${escapeHtml(date.otherUserName)}</strong></header><p class="date-time">${startsAt.toLocaleString("vi-VN", { dateStyle: "full", timeStyle: "short" })}</p>${date.venueAddress ? `<p>${escapeHtml(date.venueAddress)}</p>` : ""}${safeUrl ? `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noreferrer">Mở địa điểm</a>` : ""}${date.message ? `<p class="date-message">${escapeHtml(date.message)}</p>` : ""}<div class="date-card-actions">${actions}</div>${reviewForm}<div class="date-reviews">${reviews}</div></article>`;
-    }).join("") : '<p class="empty-message">Chưa có lời mời hẹn hò. Bạn có thể gửi lời mời cho người đã kết đôi với mình.</p>';
+      const actions = isAdmin ? "" : `${!date.isOrganizer && date.status === "Pending" ? `<button type="button" data-date-action="accept" data-date-id="${date.id}">Đồng ý</button><button type="button" data-date-action="decline" data-date-id="${date.id}">Từ chối</button>` : ""}${["Pending", "Accepted"].includes(date.status) ? `<button type="button" class="cancel-date-button" data-cancel-date="${date.id}">Hủy lịch</button>` : ""}`;
+      const reviewForm = !isAdmin && date.status === "Accepted" && isPast && !date.hasReviewed ? `<form class="date-review-form" data-date-review="${date.id}"><label class="field"><span>Đánh giá buổi hẹn</span><select name="rating"><option value="5">5 sao</option><option value="4">4 sao</option><option value="3">3 sao</option><option value="2">2 sao</option><option value="1">1 sao</option></select></label><label class="field"><span>Nhận xét</span><input name="comment" maxlength="500" placeholder="Chia sẻ cảm nhận"></label><button class="quiet-button" type="submit">Gửi đánh giá</button></form>` : "";
+      const people = isAdmin ? `${escapeHtml(date.organizerName)} → ${escapeHtml(date.recipientName)}` : escapeHtml(date.otherUserName);
+      return `<article class="date-card"><header><div><span class="date-status">${escapeHtml(statusLabels[date.status] || date.status)}</span><h3>${escapeHtml(date.venueName)}</h3></div><strong>${people}</strong></header><p class="date-time">${startsAt.toLocaleString("vi-VN", { dateStyle: "full", timeStyle: "short" })}</p>${date.venueAddress ? `<p>${escapeHtml(date.venueAddress)}</p>` : ""}${safeUrl ? `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noreferrer">Mở địa điểm</a>` : ""}${date.message ? `<p class="date-message">${escapeHtml(date.message)}</p>` : ""}<div class="date-card-actions">${actions}</div>${reviewForm}<div class="date-reviews">${reviews}</div></article>`;
+    }).join("") : isAdmin ? '<p class="empty-message">Chưa có lịch hẹn nào trong hệ thống.</p>' : '<p class="empty-message">Chưa có lời mời hẹn hò. Bạn có thể gửi lời mời cho người đã kết đôi với mình.</p>';
   } catch (error) {
     notify(list, `Không tải được lịch hẹn: ${error.message}`);
   }
@@ -940,14 +962,14 @@ async function submitDateReview(event) {
 async function loadCommunityEvents() {
   const container = document.querySelector("#community-event-list");
   try {
-    const events = await request("/events?limit=50");
+    const events = await request("/events?limit=100");
     container.innerHTML = events.length ? events.map((item) => `
       <article class="community-event-card">
         <header><div><span class="date-status">${new Date(item.startsAt).toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })}</span><h3>${escapeHtml(item.name)}</h3></div><strong>${item.attendeeCount} người tham gia</strong></header>
         <p><b>Địa điểm:</b> ${escapeHtml(item.venueName)}</p>
         ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ""}
         <small>Tạo bởi ${escapeHtml(item.creatorName)}</small>
-        <div class="date-card-actions">${item.isMine ? `<button class="cancel-date-button" type="button" data-delete-community-event="${item.id}">Xóa sự kiện</button>` : `<button type="button" data-toggle-event-attendance="${item.id}" data-attending="${item.isAttending}">${item.isAttending ? "Rời sự kiện" : "Tham gia"}</button>`}</div>
+        <div class="date-card-actions"><button class="cancel-date-button" type="button" data-delete-community-event="${item.id}">Xóa sự kiện</button></div>
       </article>`).join("") : '<p class="empty-message">Chưa có sự kiện sắp tới. Bạn có thể tạo sự kiện đầu tiên.</p>';
   } catch (error) {
     container.innerHTML = `<p class="empty-message">${escapeHtml(error.message)}</p>`;
@@ -1914,6 +1936,8 @@ function logout() {
   localStorage.removeItem("kiss.profile");
   appState.token = null;
   appState.profile = null;
+  appState.isOwner = false;
+  document.querySelector("#events-nav").hidden = true;
   appView.hidden = true;
   authView.hidden = false;
   document.title = "Kiss | Đăng nhập";

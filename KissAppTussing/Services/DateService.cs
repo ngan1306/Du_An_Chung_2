@@ -19,6 +19,25 @@ internal sealed class DateService(DatingDbContext database)
         return invitations.Select(item => ToResponse(item, userId)).ToArray();
     }
 
+    public async Task<IReadOnlyList<AdminDateInvitationResponse>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var invitations = await database.DateInvitations.AsNoTracking()
+            .Include(item => item.Organizer)
+            .Include(item => item.Recipient)
+            .Include(item => item.Reviews).ThenInclude(review => review.Reviewer)
+            .OrderBy(item => item.StartsAt < now)
+            .ThenBy(item => item.StartsAt)
+            .ToListAsync(cancellationToken);
+        return invitations.Select(item => new AdminDateInvitationResponse(
+            item.Id, item.OrganizerUserId, item.Organizer.Name, item.RecipientUserId, item.Recipient.Name,
+            item.VenueName, item.VenueAddress, item.VenueUrl, item.StartsAt, item.Message, item.Status,
+            item.CreatedAt, item.Reviews.OrderBy(review => review.CreatedAt)
+                .Select(review => new DateReviewResponse(review.Id, review.ReviewerUserId, review.Reviewer.Name,
+                    review.Rating, review.Comment, review.CreatedAt))
+                .ToArray())).ToArray();
+    }
+
     public async Task<(string Status, DateInvitationResponse? Invitation)> CreateAsync(
         Guid userId,
         CreateDateInvitationRequest request,

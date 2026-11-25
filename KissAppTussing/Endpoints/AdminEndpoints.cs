@@ -46,8 +46,19 @@ internal static class AdminEndpoints
         admin.MapGet("/audit", GetAuditLogAsync);
         admin.MapPost("/notifications", SendSystemNotificationAsync);
         admin.MapGet("/analytics", GetAnalyticsAsync);
+        admin.MapGet("/dates", GetAllDateInvitationsAsync)
+            .WithSummary("List all date invitations for the authorized owner");
 
         return endpoints;
+    }
+
+    private static async Task<Ok<IReadOnlyList<AdminDateInvitationResponse>>> GetAllDateInvitationsAsync(
+        DateService service,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        httpContext.Response.Headers.CacheControl = "no-store, private";
+        return TypedResults.Ok(await service.GetAllAsync(cancellationToken));
     }
 
     private static async Task<Ok<IReadOnlyList<AdminManagedUser>>> GetUsersAsync(

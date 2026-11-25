@@ -874,6 +874,7 @@ img, video { max-width: 100%; }
 .notification-card button { min-height: 36px; flex: none; padding: 0 11px; border: 1px solid var(--line); border-radius: 7px; color: var(--green); background: #fff; font-size: 11px; font-weight: 700; cursor: pointer; }
 .notification-card button:disabled { opacity: .5; cursor: wait; }
 .date-planning-grid { display: grid; grid-template-columns: minmax(270px, .8fr) minmax(0, 1.2fr); gap: 20px; align-items: start; }
+.date-planning-grid.is-admin { grid-template-columns: minmax(0, 1fr); }
 .date-invitation-form, .date-list-panel { display: grid; align-content: start; gap: 14px; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .date-invitation-form h2, .date-list-panel .journey-feed-heading h2 { margin: 0; color: var(--ink); font-size: 19px; font-weight: 600; }
 .date-invitation-form .field input, .date-invitation-form .field select, .date-invitation-form .field textarea { min-height: 42px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; }

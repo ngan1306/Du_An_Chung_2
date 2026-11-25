@@ -229,6 +229,10 @@ public sealed record DateInvitationResponse(
     Guid Id, Guid OtherUserId, string OtherUserName, bool IsOrganizer, string VenueName, string? VenueAddress,
     string? VenueUrl, DateTimeOffset StartsAt, string Message, string Status, DateTimeOffset CreatedAt,
     bool HasReviewed, IReadOnlyList<DateReviewResponse> Reviews);
+public sealed record AdminDateInvitationResponse(
+    Guid Id, Guid OrganizerUserId, string OrganizerName, Guid RecipientUserId, string RecipientName,
+    string VenueName, string? VenueAddress, string? VenueUrl, DateTimeOffset StartsAt, string Message,
+    string Status, DateTimeOffset CreatedAt, IReadOnlyList<DateReviewResponse> Reviews);
 
 public sealed record CreateContentReportRequest
 {
@@ -237,7 +241,7 @@ public sealed record CreateContentReportRequest
 }
 
 public sealed record ContentReportResponse(Guid Id, string TargetType, Guid TargetId, string Reason, string Status, DateTimeOffset CreatedAt);
-public sealed record AdminContentReportResponse(Guid Id, Guid ReporterUserId, string ReporterName, string TargetType, Guid TargetId, string Reason, string Status, DateTimeOffset CreatedAt, string? TargetPreview = null);
+public sealed record AdminContentReportResponse(Guid Id, Guid ReporterUserId, string ReporterName, string TargetType, Guid TargetId, string Reason, string Status, DateTimeOffset CreatedAt, string? TargetPreview = null, string? TargetName = null, bool TargetIsSuspended = false);
 public sealed record UpdateAdminReportRequest
 {
     [Required, RegularExpression("^(Resolved|Dismissed)$")]

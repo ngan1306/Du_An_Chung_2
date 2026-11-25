@@ -66,22 +66,35 @@ internal static class SafetyEndpoints
         var postIds = reports.Where(report => report.TargetType == "Post").Select(report => report.TargetId).Distinct().ToArray();
         var commentIds = reports.Where(report => report.TargetType == "Comment").Select(report => report.TargetId).Distinct().ToArray();
         var messageIds = reports.Where(report => report.TargetType == "Message").Select(report => report.TargetId).Distinct().ToArray();
+        var userIds = reports.Where(report => report.TargetType == "User").Select(report => report.TargetId).Distinct().ToArray();
+        var reportedUsers = await database.Users.AsNoTracking().Where(user => userIds.Contains(user.Id))
+            .ToDictionaryAsync(user => user.Id, user => new { user.Name, user.IsSuspended }, cancellationToken);
         var posts = await database.JourneyPosts.AsNoTracking().Where(post => postIds.Contains(post.Id))
-            .ToDictionaryAsync(post => post.Id, post => post.Content, cancellationToken);
+            .ToDictionaryAsync(post => post.Id, post => new { post.Content, post.User.Name }, cancellationToken);
         var comments = await database.JourneyComments.AsNoTracking().Where(comment => commentIds.Contains(comment.Id))
-            .ToDictionaryAsync(comment => comment.Id, comment => comment.Content, cancellationToken);
+            .ToDictionaryAsync(comment => comment.Id, comment => new { comment.Content, comment.User.Name }, cancellationToken);
         var messages = await database.ChatMessages.AsNoTracking().Where(message => messageIds.Contains(message.Id))
-            .ToDictionaryAsync(message => message.Id, message => message.Content ?? "(Tệp đính kèm)", cancellationToken);
+            .ToDictionaryAsync(message => message.Id, message => new { Content = message.Content ?? "(Tệp đính kèm)", message.Sender.Name }, cancellationToken);
         var enriched = reports.Select(report => report with
         {
             TargetPreview = report.TargetType switch
             {
                 "User" => "Tài khoản người dùng",
-                "Post" => posts.GetValueOrDefault(report.TargetId),
-                "Comment" => comments.GetValueOrDefault(report.TargetId),
-                "Message" => messages.GetValueOrDefault(report.TargetId),
+                "Post" => posts.GetValueOrDefault(report.TargetId)?.Content,
+                "Comment" => comments.GetValueOrDefault(report.TargetId)?.Content,
+                "Message" => messages.GetValueOrDefault(report.TargetId)?.Content,
                 _ => null
-            }
+            },
+            TargetName = report.TargetType switch
+            {
+                "User" => reportedUsers.GetValueOrDefault(report.TargetId)?.Name,
+                "Post" => posts.GetValueOrDefault(report.TargetId)?.Name,
+                "Comment" => comments.GetValueOrDefault(report.TargetId)?.Name,
+                "Message" => messages.GetValueOrDefault(report.TargetId)?.Name,
+                _ => null
+            },
+            TargetIsSuspended = report.TargetType == "User"
+                && reportedUsers.GetValueOrDefault(report.TargetId)?.IsSuspended == true
         }).ToArray();
         return TypedResults.Ok<IReadOnlyList<AdminContentReportResponse>>(enriched);
     }

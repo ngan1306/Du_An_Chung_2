@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/app.css?v=undo-pass-20261102">
-  <script src="/app.js?v=undo-pass-20261102" defer></script>
+  <link rel="stylesheet" href="/app.css?v=admin-pages-20261125">
+  <script src="/app.js?v=admin-pages-20261125" defer></script>
 </head>
 <body>
   <main class="auth-layout">
@@ -99,7 +99,7 @@
         <button class="app-nav-item" data-page="passed" type="button">Từ chối <span id="passed-count">0</span></button>
         <button class="app-nav-item" data-page="notifications" type="button">Thông báo <span id="notification-count">0</span></button>
         <button class="app-nav-item" data-page="dates" type="button">Lịch hẹn</button>
-        <button class="app-nav-item" data-page="events" type="button">Sự kiện</button>
+        <button class="app-nav-item" data-page="events" id="events-nav" type="button" hidden>Sự kiện</button>
         <button class="app-nav-item" data-page="profile" type="button">Hồ sơ của tôi</button>
         <button class="app-nav-item" data-page="admin" id="admin-nav" type="button" hidden>Quản trị viên</button>
       </nav>
@@ -132,7 +132,7 @@
     </section>
 
     <section id="dates-page" class="app-page" hidden>
-      <header class="page-heading"><div><p class="eyebrow">LÊN KẾ HOẠCH GẶP MẶT</p><h1>Lịch hẹn</h1></div><p>Gửi lời mời đến người bạn đã kết đôi, chọn địa điểm và thời gian phù hợp.</p></header>
+      <header class="page-heading"><div><p class="eyebrow">LÊN KẾ HOẠCH GẶP MẶT</p><h1>Lịch hẹn</h1></div><p id="dates-description">Gửi lời mời đến người bạn đã kết đôi, chọn địa điểm và thời gian phù hợp.</p></header>
       <div class="date-planning-grid">
         <form id="date-invitation-form" class="date-invitation-form">
           <h2>Tạo lời mời hẹn hò</h2>
@@ -146,14 +146,14 @@
           <button class="submit-button" type="submit">Gửi lời mời</button>
         </form>
         <div class="date-list-panel">
-          <div class="journey-feed-heading"><h2>Lời mời và lịch sắp tới</h2><button id="dates-refresh" class="quiet-button" type="button">Làm mới</button></div>
+          <div class="journey-feed-heading"><h2 id="dates-list-heading">Lời mời và lịch sắp tới</h2><button id="dates-refresh" class="quiet-button" type="button">Làm mới</button></div>
           <div id="date-list" class="date-list" aria-live="polite"></div>
         </div>
       </div>
     </section>
 
     <section id="events-page" class="app-page" hidden>
-      <header class="page-heading"><div><p class="eyebrow">GẶP GỠ CỘNG ĐỒNG</p><h1>Sự kiện</h1></div><p>Tạo một buổi gặp mặt hoặc tham gia sự kiện sắp tới.</p></header>
+      <header class="page-heading"><div><p class="eyebrow">GẶP GỠ CỘNG ĐỒNG</p><h1>Sự kiện</h1></div><p>Quản lý sự kiện sắp tới và gửi thông báo đến người dùng.</p></header>
       <div class="community-events-grid">
         <form id="community-event-form" class="community-event-form">
           <h2>Tạo sự kiện</h2>
@@ -359,7 +359,7 @@
         <p id="admin-message" class="form-message" role="status" aria-live="polite" hidden></p>
       </div>
       <div class="admin-users-panel">
-        <div class="journey-feed-heading"><h2>Báo cáo cần xử lý</h2><button id="admin-reports-refresh" class="quiet-button" type="button">Làm mới</button></div>
+        <div class="journey-feed-heading"><h2 id="admin-reports-heading">Báo cáo cần xử lý</h2><button id="admin-reports-refresh" class="quiet-button" type="button">Làm mới</button></div>
         <div id="admin-reports" class="admin-reports" aria-live="polite"></div>
       </div>
       <div id="admin-announcement-panel" class="admin-users-panel">
