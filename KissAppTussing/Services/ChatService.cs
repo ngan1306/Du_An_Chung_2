@@ -37,12 +37,24 @@ internal sealed class ChatService(DatingDbContext database, IWebHostEnvironment 
             .Select(swipe => swipe.FromUserId)
             .ToListAsync(cancellationToken);
 
+        var acceptedFriendIds = await database.ConnectionRequests.AsNoTracking()
+            .Where(connection => connection.Status == "Accepted"
+                && (connection.FirstUserId == userId || connection.SecondUserId == userId))
+            .Select(connection => connection.FirstUserId == userId ? connection.SecondUserId : connection.FirstUserId)
+            .ToListAsync(cancellationToken);
+
         var endedMatchUserIds = await database.Matches.AsNoTracking()
             .Where(match => match.EndedAt != null && (match.FirstUserId == userId || match.SecondUserId == userId))
             .Select(match => match.FirstUserId == userId ? match.SecondUserId : match.FirstUserId)
             .ToHashSetAsync(cancellationToken);
+        var blockedUserIds = await database.UserBlocks.AsNoTracking()
+            .Where(block => block.BlockerUserId == userId || block.BlockedUserId == userId)
+            .Select(block => block.BlockerUserId == userId ? block.BlockedUserId : block.BlockerUserId)
+            .ToHashSetAsync(cancellationToken);
         var contactIds = matchedUserIds.Concat(outgoingLikes).Concat(incomingLikes)
             .Where(contactId => !endedMatchUserIds.Contains(contactId))
+            .Concat(acceptedFriendIds)
+            .Where(contactId => !blockedUserIds.Contains(contactId))
             .Distinct().ToArray();
         if (contactIds.Length == 0) return [];
 
@@ -255,6 +267,13 @@ internal sealed class ChatService(DatingDbContext database, IWebHostEnvironment 
             || (block.BlockerUserId == otherUserId && block.BlockedUserId == userId), cancellationToken))
         {
             return false;
+        }
+
+        if (await database.ConnectionRequests.AnyAsync(connection => connection.Status == "Accepted"
+            && ((connection.FirstUserId == userId && connection.SecondUserId == otherUserId)
+                || (connection.FirstUserId == otherUserId && connection.SecondUserId == userId)), cancellationToken))
+        {
+            return true;
         }
 
         if (await database.Matches.AnyAsync(match => match.EndedAt != null
