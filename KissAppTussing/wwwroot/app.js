@@ -1380,9 +1380,29 @@ async function loadChatContacts() {
   const list = document.querySelector("#chat-contact-list");
   const status = document.querySelector("#chat-status");
   try {
-    const contacts = await request("/chat/contacts");
-    chatState.contacts = contacts;
-    document.querySelector("#chat-contact-count").textContent = contacts.length;
+    const [chatContacts, conversations] = await Promise.all([
+      request("/chat/contacts"),
+      request("/conversations").catch(() => [])
+    ]);
+    const contactsById = new Map(chatContacts.map((contact) => [contact.id, contact]));
+    const friendContacts = conversations.map((conversation) => {
+      const friend = conversation.user;
+      const existing = contactsById.get(friend.id);
+      return {
+        ...(existing || {}),
+        id: friend.id,
+        name: friend.name || existing?.name || "Bạn bè",
+        bio: friend.bio || existing?.bio || "",
+        city: friend.city || existing?.city || "",
+        photos: existing?.photos?.length ? existing.photos : friend.avatarUrl ? [{ url: friend.avatarUrl, isAvatar: true }] : [],
+        interests: existing?.interests || [],
+        isOnline: existing?.isOnline || false,
+        socialConversationId: conversation.id
+      };
+    });
+    const friendIds = new Set(friendContacts.map((contact) => contact.id));
+    chatState.contacts = [...friendContacts, ...chatContacts.filter((contact) => !friendIds.has(contact.id))];
+    document.querySelector("#chat-contact-count").textContent = chatState.contacts.length;
 
     if (!chatState.contacts.length) {
       list.innerHTML = '<p class="chat-contact-empty">Bạn chưa có cuộc trò chuyện. Hãy thích một hồ sơ để bắt đầu nhắn tin.</p>';
@@ -1510,7 +1530,16 @@ async function loadChatMessages(scrollToLatest = false) {
   const conversationId = chatState.activeUserId;
   const wasNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
   try {
-    const messages = await request(`/chat/${conversationId}/messages`);
+    const contact = chatState.contacts.find((item) => item.id === conversationId);
+    const messages = contact?.socialConversationId
+      ? (await request(`/conversations/${contact.socialConversationId}/messages?limit=100`)).map((message) => ({
+        ...message,
+        isMine: message.senderId === appState.profile?.id,
+        isRevoked: false,
+        canRecall: false,
+        isSocialConversation: true
+      }))
+      : await request(`/chat/${conversationId}/messages`);
     if (chatState.activeUserId !== conversationId) return;
     const key = messages.map((message) => `${message.id}:${message.content}:${message.isRead}:${message.isRevoked}`).join("|");
     if (key === chatState.lastMessageKey) return;
@@ -1544,7 +1573,7 @@ function renderChatMessages(scrollToLatest) {
     const time = new Date(message.sentAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
     return `<article class="chat-message-row ${message.isMine ? "is-mine" : ""}" data-chat-message="${message.id}">
       <div class="chat-message-bubble ${message.isRevoked ? "is-revoked" : ""}">${message.content ? `<p>${escapeHtml(message.content)}</p>` : ""}${mediaMarkup}<time>${time}${message.isMine ? (message.isRead ? " · Đã xem" : " · Đã gửi") : ""}</time>
-      <div class="chat-message-actions">${message.canRecall ? `<button type="button" data-recall-message="${message.id}">Thu hồi</button>` : ""}<button type="button" data-hide-message="${message.id}">Xóa ở phía tôi</button>${!message.isMine ? `<button type="button" data-report-message="${message.id}">Báo cáo</button>` : ""}</div></div>
+      ${message.isSocialConversation ? "" : `<div class="chat-message-actions">${message.canRecall ? `<button type="button" data-recall-message="${message.id}">Thu hồi</button>` : ""}<button type="button" data-hide-message="${message.id}">Xóa ở phía tôi</button>${!message.isMine ? `<button type="button" data-report-message="${message.id}">Báo cáo</button>` : ""}</div>`}</div>
     </article>`;
   }).join("");
   if (scrollToLatest) container.scrollTop = container.scrollHeight;
@@ -1636,13 +1665,25 @@ async function submitChatMessage(event) {
 
   const form = event.currentTarget;
   const button = form.querySelector("[type=submit]");
+  const contact = chatState.contacts.find((item) => item.id === chatState.activeUserId);
+  if (contact?.socialConversationId && file) {
+    notify(document.querySelector("#chat-status"), "Tin nhắn với bạn bè hiện chỉ hỗ trợ văn bản.");
+    return;
+  }
   const formData = new FormData();
   formData.set("content", content);
   if (file) formData.set("media", file);
   button.disabled = true;
   document.querySelector("#chat-status").hidden = true;
   try {
-    await request(`/chat/${chatState.activeUserId}/messages`, { method: "POST", body: formData });
+    if (contact?.socialConversationId) {
+      await request(`/conversations/${contact.socialConversationId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ content })
+      });
+    } else {
+      await request(`/chat/${chatState.activeUserId}/messages`, { method: "POST", body: formData });
+    }
     input.value = "";
     fileInput.value = "";
     updateChatFileName();
