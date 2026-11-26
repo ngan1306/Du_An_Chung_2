@@ -11,7 +11,7 @@ internal sealed class DatingService(DatingDbContext database, IWebHostEnvironmen
     private const int MaxProfilePhotos = 6;
     private const long MaxPhotoBytes = 5 * 1024 * 1024;
 
-    public async Task<IReadOnlyList<UserProfileResponse>> DiscoverAsync(
+    public async Task<IReadOnlyList<UserProfileResponse>?> DiscoverAsync(
         Guid userId,
         int limit,
         string? search,
@@ -21,11 +21,29 @@ internal sealed class DatingService(DatingDbContext database, IWebHostEnvironmen
         string? city,
         string? lookingFor,
         Guid? interestId,
+        double? radiusKm,
         CancellationToken cancellationToken)
     {
+        double? originLatitude = null;
+        double? originLongitude = null;
+        if (radiusKm.HasValue)
+        {
+            var location = await database.Users.AsNoTracking()
+                .Where(user => user.Id == userId)
+                .Select(user => new { user.Latitude, user.Longitude })
+                .SingleOrDefaultAsync(cancellationToken);
+            if (location?.Latitude is null || location.Longitude is null) return null;
+            originLatitude = location.Latitude.Value;
+            originLongitude = location.Longitude.Value;
+        }
+
         var query = database.Users
             .AsNoTracking()
-            .Where(user => user.Id != userId)
+            .Where(user => user.Id != userId && !user.IsSuspended)
+            .Where(user => !user.IsIncognito)
+            .Where(user => !database.UserBlocks.Any(block =>
+                (block.BlockerUserId == userId && block.BlockedUserId == user.Id)
+                || (block.BlockerUserId == user.Id && block.BlockedUserId == userId)))
             .Where(user => !database.Swipes.Any(swipe =>
                 swipe.FromUserId == userId && swipe.ToUserId == user.Id));
 
@@ -68,16 +86,39 @@ internal sealed class DatingService(DatingDbContext database, IWebHostEnvironmen
                 userInterest.UserId == user.Id && userInterest.InterestId == interestId.Value));
         }
 
+        if (radiusKm.HasValue)
+        {
+            var latitudeDelta = radiusKm.Value / 110.574;
+            var cosine = Math.Max(0.01, Math.Cos(originLatitude!.Value * Math.PI / 180));
+            var longitudeDelta = radiusKm.Value / (111.320 * cosine);
+            query = query.Where(user => user.Latitude.HasValue && user.Longitude.HasValue
+                && user.Latitude >= originLatitude.Value - latitudeDelta
+                && user.Latitude <= originLatitude.Value + latitudeDelta
+                && user.Longitude >= originLongitude!.Value - longitudeDelta
+                && user.Longitude <= originLongitude.Value + longitudeDelta);
+        }
+
         var users = await query
             .Include(user => user.Photos)
             .Include(user => user.Interests)
                 .ThenInclude(userInterest => userInterest.Interest)
             .AsSplitQuery()
             .OrderBy(user => user.CreatedAt)
-            .Take(limit)
             .ToListAsync(cancellationToken);
 
-        return users.Select(ToProfile).ToArray();
+        if (radiusKm.HasValue)
+        {
+            return users
+                .Select(user => new { User = user, Distance = DistanceKm(originLatitude!.Value, originLongitude!.Value, user.Latitude!.Value, user.Longitude!.Value) })
+                .Where(item => item.Distance <= radiusKm.Value)
+                .OrderBy(item => item.Distance)
+                .Take(limit)
+                .Select(item => ToProfile(item.User, distanceKm: item.Distance))
+                .ToArray();
+        }
+
+        users = users.Take(limit).ToList();
+        return users.Select(user => ToProfile(user)).ToArray();
     }
 
     public async Task<UserProfileResponse?> GetProfileAsync(
@@ -93,6 +134,16 @@ internal sealed class DatingService(DatingDbContext database, IWebHostEnvironmen
             .SingleOrDefaultAsync(candidate => candidate.Id == profileId, cancellationToken);
 
         return user is null ? null : ToProfile(user);
+    }
+
+    public async Task<UserProfileResponse?> GetMyProfileAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var user = await database.Users.AsNoTracking()
+            .Include(candidate => candidate.Photos)
+            .Include(candidate => candidate.Interests).ThenInclude(userInterest => userInterest.Interest)
+            .AsSplitQuery()
+            .SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
+        return user is null ? null : ToProfile(user, includePrivate: true);
     }
 
     public async Task<UserProfileResponse?> UpdateProfileAsync(
@@ -130,7 +181,44 @@ internal sealed class DatingService(DatingDbContext database, IWebHostEnvironmen
         user.Bio = request.Bio.Trim();
         await database.SaveChangesAsync(cancellationToken);
 
-        return await GetProfileAsync(userId, cancellationToken);
+        return await GetMyProfileAsync(userId, cancellationToken);
+    }
+
+    public async Task<PrivacySettingsResponse?> UpdatePrivacyAsync(Guid userId, UpdatePrivacyRequest request, CancellationToken cancellationToken)
+    {
+        var user = await database.Users.SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
+        if (user is null) return null;
+        user.HideAge = request.HideAge;
+        user.HideCity = request.HideCity;
+        user.HideOccupation = request.HideOccupation;
+        user.HideEducation = request.HideEducation;
+        user.IsIncognito = request.IsIncognito;
+        await database.SaveChangesAsync(cancellationToken);
+        return new PrivacySettingsResponse(user.HideAge, user.HideCity, user.HideOccupation, user.HideEducation, user.IsIncognito);
+    }
+
+    public async Task<PrivacySettingsResponse?> GetPrivacyAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var user = await database.Users.AsNoTracking().SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
+        return user is null ? null : new PrivacySettingsResponse(
+            user.HideAge, user.HideCity, user.HideOccupation, user.HideEducation, user.IsIncognito);
+    }
+
+    public async Task<bool> UpdateLocationAsync(Guid userId, UpdateLocationRequest request, CancellationToken cancellationToken)
+    {
+        var user = await database.Users.SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
+        if (user is null) return false;
+        user.Latitude = request.Latitude;
+        user.Longitude = request.Longitude;
+        await database.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> MarkOnlineAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var updated = await database.Users.Where(user => user.Id == userId)
+            .ExecuteUpdateAsync(update => update.SetProperty(user => user.LastSeenAt, DateTimeOffset.UtcNow), cancellationToken);
+        return updated > 0;
     }
 
     public async Task<IReadOnlyList<InterestResponse>> GetInterestsAsync(CancellationToken cancellationToken) =>
@@ -330,9 +418,18 @@ internal sealed class DatingService(DatingDbContext database, IWebHostEnvironmen
             return new SwipeResult(SwipeStatus.SelfSwipe, null);
         }
 
-        var targetExists = await database.Users
-            .AnyAsync(user => user.Id == request.TargetUserId, cancellationToken);
-        if (!targetExists)
+        if (request.IsSuperLike && !request.IsLike)
+        {
+            return new SwipeResult(SwipeStatus.SelfSwipe, null);
+        }
+
+        var target = await database.Users.AsNoTracking()
+            .Where(user => user.Id == request.TargetUserId)
+            .Select(user => new { user.Name, user.IsSuspended })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (target is null || target.IsSuspended || await database.UserBlocks.AnyAsync(block =>
+            (block.BlockerUserId == userId && block.BlockedUserId == request.TargetUserId)
+            || (block.BlockerUserId == request.TargetUserId && block.BlockedUserId == userId), cancellationToken))
         {
             return new SwipeResult(SwipeStatus.TargetNotFound, null);
         }
@@ -349,8 +446,18 @@ internal sealed class DatingService(DatingDbContext database, IWebHostEnvironmen
         {
             FromUserId = userId,
             ToUserId = request.TargetUserId,
-            IsLike = request.IsLike
+            IsLike = request.IsLike,
+            IsSuperLike = request.IsSuperLike
         });
+
+        if (request.IsLike)
+        {
+            await NotificationWriter.AddAsync(database, request.TargetUserId,
+                request.IsSuperLike ? "SuperLike" : "Like",
+                request.IsSuperLike ? "Ai đó đã gửi Super Like cho bạn" : "Bạn có lượt thích mới",
+                request.IsSuperLike ? "Có người đặc biệt muốn làm quen với bạn." : "Hãy xem hồ sơ mới đã thích bạn.",
+                userId, cancellationToken);
+        }
 
         Guid? matchId = null;
         if (request.IsLike)
@@ -372,6 +479,8 @@ internal sealed class DatingService(DatingDbContext database, IWebHostEnvironmen
                 };
                 database.Matches.Add(match);
                 matchId = match.Id;
+                await NotificationWriter.AddAsync(database, userId, "Match", "Hai bạn đã kết đôi", $"Bạn và {target.Name} đã thích nhau.", match.Id, cancellationToken);
+                await NotificationWriter.AddAsync(database, request.TargetUserId, "Match", "Hai bạn đã kết đôi", "Một lượt thích của bạn đã thành kết đôi.", match.Id, cancellationToken);
             }
         }
 
@@ -379,7 +488,24 @@ internal sealed class DatingService(DatingDbContext database, IWebHostEnvironmen
 
         return new SwipeResult(
             SwipeStatus.Created,
-            new SwipeResponse(request.TargetUserId, request.IsLike, matchId is not null, matchId));
+            new SwipeResponse(request.TargetUserId, request.IsLike, matchId is not null, matchId, request.IsSuperLike));
+    }
+
+    public async Task<bool> UndoPassAsync(
+        Guid userId,
+        Guid targetUserId,
+        CancellationToken cancellationToken)
+    {
+        var swipe = await database.Swipes.SingleOrDefaultAsync(
+            item => item.FromUserId == userId
+                && item.ToUserId == targetUserId
+                && !item.IsLike,
+            cancellationToken);
+        if (swipe is null) return false;
+
+        database.Swipes.Remove(swipe);
+        await database.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task<IReadOnlyList<MatchResponse>> GetMatchesAsync(
@@ -388,7 +514,7 @@ internal sealed class DatingService(DatingDbContext database, IWebHostEnvironmen
     {
         var matches = await database.Matches
             .AsNoTracking()
-            .Where(match => match.FirstUserId == userId || match.SecondUserId == userId)
+            .Where(match => match.EndedAt == null && (match.FirstUserId == userId || match.SecondUserId == userId))
             .Include(match => match.FirstUser)
                 .ThenInclude(user => user.Photos)
             .Include(match => match.FirstUser)
@@ -409,21 +535,120 @@ internal sealed class DatingService(DatingDbContext database, IWebHostEnvironmen
             match.MatchedAt)).ToArray();
     }
 
-    private static UserProfileResponse ToProfile(User user) => new(
+    public async Task<bool> UnmatchAsync(Guid userId, Guid matchId, CancellationToken cancellationToken)
+    {
+        var match = await database.Matches.SingleOrDefaultAsync(candidate =>
+            candidate.Id == matchId && candidate.EndedAt == null
+            && (candidate.FirstUserId == userId || candidate.SecondUserId == userId), cancellationToken);
+        if (match is null) return false;
+        match.EndedAt = DateTimeOffset.UtcNow;
+        match.UnmatchedByUserId = userId;
+        await database.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<IReadOnlyList<LikedProfileResponse>> GetLikedProfilesAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var swipes = await database.Swipes.AsNoTracking()
+            .Where(swipe => swipe.FromUserId == userId && swipe.IsLike)
+            .OrderByDescending(swipe => swipe.CreatedAt)
+            .Select(swipe => new { swipe.ToUserId, swipe.CreatedAt })
+            .ToListAsync(cancellationToken);
+        if (swipes.Count == 0) return [];
+
+        var userIds = swipes.Select(swipe => swipe.ToUserId).Distinct().ToArray();
+        var profiles = await database.Users.AsNoTracking()
+            .Where(user => userIds.Contains(user.Id))
+            .Include(user => user.Photos)
+            .Include(user => user.Interests)
+                .ThenInclude(userInterest => userInterest.Interest)
+            .AsSplitQuery()
+            .ToDictionaryAsync(user => user.Id, cancellationToken);
+
+        var activeMatches = await database.Matches.AsNoTracking()
+            .Where(match => match.EndedAt == null && (match.FirstUserId == userId || match.SecondUserId == userId))
+            .Select(match => new
+            {
+                OtherUserId = match.FirstUserId == userId ? match.SecondUserId : match.FirstUserId,
+                match.Id
+            })
+            .ToDictionaryAsync(match => match.OtherUserId, match => match.Id, cancellationToken);
+        var endedMatchUserIds = await database.Matches.AsNoTracking()
+            .Where(match => match.EndedAt != null && (match.FirstUserId == userId || match.SecondUserId == userId))
+            .Select(match => match.FirstUserId == userId ? match.SecondUserId : match.FirstUserId)
+            .ToHashSetAsync(cancellationToken);
+
+        return swipes
+            .Where(swipe => profiles.ContainsKey(swipe.ToUserId))
+            .Select(swipe => new LikedProfileResponse(
+                ToProfile(profiles[swipe.ToUserId]),
+                swipe.CreatedAt,
+                activeMatches.ContainsKey(swipe.ToUserId),
+                activeMatches.GetValueOrDefault(swipe.ToUserId),
+                endedMatchUserIds.Contains(swipe.ToUserId)))
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyList<RejectedProfileResponse>> GetRejectedProfilesAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var swipes = await database.Swipes.AsNoTracking()
+            .Where(swipe => swipe.FromUserId == userId && !swipe.IsLike)
+            .OrderByDescending(swipe => swipe.CreatedAt)
+            .Select(swipe => new { swipe.ToUserId, swipe.CreatedAt })
+            .ToListAsync(cancellationToken);
+        if (swipes.Count == 0) return [];
+
+        var userIds = swipes.Select(swipe => swipe.ToUserId).Distinct().ToArray();
+        var profiles = await database.Users.AsNoTracking()
+            .Where(user => userIds.Contains(user.Id))
+            .Include(user => user.Photos)
+            .Include(user => user.Interests)
+                .ThenInclude(userInterest => userInterest.Interest)
+            .AsSplitQuery()
+            .ToDictionaryAsync(user => user.Id, cancellationToken);
+
+        return swipes
+            .Where(swipe => profiles.ContainsKey(swipe.ToUserId))
+            .Select(swipe => new RejectedProfileResponse(
+                ToProfile(profiles[swipe.ToUserId]),
+                swipe.CreatedAt))
+            .ToArray();
+    }
+
+    private static UserProfileResponse ToProfile(User user, bool includePrivate = false, double? distanceKm = null) => new(
         user.Id,
         user.Name,
-        user.BirthDate,
+        includePrivate || !user.HideAge ? user.BirthDate : null,
         user.Bio,
         user.Gender,
-        user.City,
-        user.Occupation,
-        user.Education,
+        includePrivate || !user.HideCity ? user.City : null,
+        includePrivate || !user.HideOccupation ? user.Occupation : null,
+        includePrivate || !user.HideEducation ? user.Education : null,
         user.LookingFor,
         user.Photos.Select(ToPhotoResponse).OrderByDescending(photo => photo.IsAvatar).ThenBy(photo => photo.SortOrder).ToArray(),
         user.Interests.Select(userInterest => new InterestResponse(
             userInterest.InterestId,
             userInterest.Interest.Name)).OrderBy(interest => interest.Name).ToArray(),
-        user.CreatedAt);
+        user.CreatedAt,
+        distanceKm,
+        user.LastSeenAt >= DateTimeOffset.UtcNow.AddMinutes(-5));
+
+    private static double DistanceKm(double latitude1, double longitude1, double latitude2, double longitude2)
+    {
+        const double earthRadiusKm = 6371.0088;
+        var latitudeDelta = DegreesToRadians(latitude2 - latitude1);
+        var longitudeDelta = DegreesToRadians(longitude2 - longitude1);
+        var a = Math.Pow(Math.Sin(latitudeDelta / 2), 2)
+            + Math.Cos(DegreesToRadians(latitude1)) * Math.Cos(DegreesToRadians(latitude2))
+            * Math.Pow(Math.Sin(longitudeDelta / 2), 2);
+        return earthRadiusKm * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+    }
+
+    private static double DegreesToRadians(double degrees) => degrees * Math.PI / 180;
 
     private static ProfilePhotoResponse ToPhotoResponse(ProfilePhoto photo) =>
         new(photo.Id, photo.Url, photo.IsAvatar, photo.SortOrder);

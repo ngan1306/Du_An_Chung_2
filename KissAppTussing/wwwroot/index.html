@@ -11,9 +11,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<<<<<<< HEAD
   <link rel="stylesheet" href="/app.css?v=visual-refresh-20261123">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js" defer></script>
   <script src="/app.js?v=password-reset-20261026" defer></script>
+=======
+  <link rel="stylesheet" href="/app.css?v=accepted-friend-chat-20261125">
+  <script src="/app.js?v=accepted-friend-chat-20261125" defer></script>
+>>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
 </head>
 <body>
   <main class="auth-layout">
@@ -92,6 +97,7 @@
   <main id="dating-app" class="dating-app app-layout" data-component="AppLayout" hidden>
     <header class="app-header">
       <a class="app-brand" href="/" aria-label="Kiss"><span class="brand-mark">k</span><span>kiss</span></a>
+<<<<<<< HEAD
       <nav class="app-nav" aria-label="Điều hướng chính">
         <button class="app-nav-item is-active" data-page="discover" type="button"><svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 4.5 4.5"></path></svg>Khám phá</button>
         <button class="app-nav-item" data-page="journey" type="button"><svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><path d="m12 2 1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7L12 2Z"></path><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"></path></svg>Hành trình</button>
@@ -101,6 +107,20 @@
         <button class="app-nav-item" data-page="connections" type="button"><svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20v-1.2A5.8 5.8 0 0 1 8.3 13h1.4a5.8 5.8 0 0 1 5.8 5.8V20M16 4.8a3.5 3.5 0 0 1 0 6.7m2 2a5.8 5.8 0 0 1 3.5 5.3V20"></path></svg>Kết nối <span id="connection-count">0</span></button>
         <button class="app-nav-item" data-page="profile" type="button"><svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><circle cx="12" cy="8" r="3.5"></circle><path d="M4.5 21a7.5 7.5 0 0 1 15 0"></path></svg>Hồ sơ của tôi</button>
         <button class="app-nav-item" data-page="admin" id="admin-nav" type="button" hidden>Quản trị</button>
+=======
+      <nav class="app-nav" aria-label="Điều hướng">
+        <button class="app-nav-item is-active" data-page="discover" type="button">Khám phá</button>
+        <button class="app-nav-item" data-page="journey" type="button">Hành trình</button>
+        <button class="app-nav-item" data-page="matches" type="button">Lượt thích <span id="match-count">0</span></button>
+        <button class="app-nav-item" data-page="chat" type="button">Tin nhắn</button>
+        <button class="app-nav-item" data-page="connections" type="button">Bạn bè <span id="connection-count">0</span></button>
+        <button class="app-nav-item" data-page="passed" type="button">Từ chối <span id="passed-count">0</span></button>
+        <button class="app-nav-item" data-page="notifications" type="button">Thông báo <span id="notification-count">0</span></button>
+        <button class="app-nav-item" data-page="dates" type="button">Lịch hẹn</button>
+        <button class="app-nav-item" data-page="events" id="events-nav" type="button" hidden>Sự kiện</button>
+        <button class="app-nav-item" data-page="profile" type="button">Hồ sơ của tôi</button>
+        <button class="app-nav-item" data-page="admin" id="admin-nav" type="button" hidden>Quản trị viên</button>
+>>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
       </nav>
       <div class="app-account">
         <button id="account-menu-toggle" class="account-menu-toggle" type="button" aria-expanded="false" aria-controls="account-menu">
@@ -119,6 +139,7 @@
       <header class="page-heading"><div><p class="eyebrow">MỘT CUỘC GẶP MỚI</p><h1>Khám phá</h1></div><p>Tìm người cùng nhịp với bạn.</p></header>
       <form id="discover-filters" class="filter-bar">
         <label class="field"><span>Tìm theo tên</span><input name="search" type="search" placeholder="Tên hồ sơ"></label>
+<<<<<<< HEAD
         <div class="age-range-field"><div class="range-heading"><span>Độ tuổi</span><output id="age-range-output">18–60</output></div><div class="range-inputs"><input name="minAge" type="range" min="18" max="80" value="18" aria-label="Tuổi tối thiểu"><input name="maxAge" type="range" min="18" max="80" value="60" aria-label="Tuổi tối đa"></div></div>
         <details class="advanced-filters"><summary>Bộ lọc nâng cao</summary><div class="advanced-filter-grid">
           <label class="field"><span>Giới tính</span><select name="gender"><option value="">Tất cả</option><option value="Woman">Nữ</option><option value="Man">Nam</option><option value="NonBinary">Phi nhị nguyên</option><option value="PreferNotToSay">Không chia sẻ</option></select></label>
@@ -127,9 +148,67 @@
           <label class="field"><span>Sở thích</span><select name="interestId" id="filter-interest"><option value="">Tất cả</option></select></label>
         </div></details>
         <button class="submit-button" type="submit"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M4 5h16l-6.2 7.2v5.1l-3.6 1.8v-6.9L4 5Z"></path></svg>Lọc hồ sơ</button>
+=======
+        <label class="field"><span>Giới tính</span><select name="gender"><option value="">Tất cả</option><option value="Woman">Nữ</option><option value="Man">Nam</option><option value="NonBinary">Phi nhị nguyên</option><option value="PreferNotToSay">Không chia sẻ</option></select></label>
+        <label class="field"><span>Tuổi từ</span><input name="minAge" type="number" min="18" max="120" placeholder="18"></label>
+        <label class="field"><span>Đến</span><input name="maxAge" type="number" min="18" max="120" placeholder="99"></label>
+        <label class="field"><span>Thành phố</span><input name="city" type="search" maxlength="100" placeholder="Mọi nơi"></label>
+        <label class="field"><span>Mục đích</span><select name="lookingFor"><option value="">Bất kỳ</option><option value="Friendship">Kết bạn</option><option value="Dating">Hẹn hò</option><option value="Relationship">Mối quan hệ nghiêm túc</option></select></label>
+        <label class="field"><span>Sở thích</span><select name="interestId" id="filter-interest"><option value="">Tất cả</option></select></label>
+        <div class="distance-filter"><label class="field"><span>Khoảng cách</span><select name="radiusKm"><option value="">Mọi khoảng cách</option><option value="10">Trong 10 km</option><option value="25">Trong 25 km</option><option value="50">Trong 50 km</option><option value="100">Trong 100 km</option></select></label><button id="discover-location-button" class="quiet-button" type="button">Dùng vị trí GPS</button></div>
+        <button class="submit-button" type="submit">Lọc hồ sơ</button>
+>>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
       </form>
       <p id="discover-message" class="form-message" role="status" aria-live="polite" hidden></p>
+      <p id="location-message" class="form-message" role="status" aria-live="polite" hidden></p>
+      <p id="discover-count" class="results-count" aria-live="polite"></p>
       <div id="discover-results" class="profile-grid" aria-live="polite"></div>
+      <nav id="discover-pagination" class="discover-pagination" aria-label="Điều hướng trang hồ sơ" hidden></nav>
+    </section>
+
+    <section id="notifications-page" class="app-page" hidden>
+      <header class="page-heading"><div><p class="eyebrow">CẬP NHẬT MỚI NHẤT</p><h1>Thông báo</h1></div><div class="notification-actions"><button id="refresh-notifications" class="quiet-button" type="button">Làm mới</button><button id="enable-browser-notifications" class="quiet-button" type="button">Bật thông báo trình duyệt</button><button id="mark-all-notifications-read" class="quiet-button" type="button">Đánh dấu đã đọc</button></div></header>
+      <div id="notification-list" class="notification-list" aria-live="polite"></div>
+    </section>
+
+    <section id="dates-page" class="app-page" hidden>
+      <header class="page-heading"><div><p class="eyebrow">LÊN KẾ HOẠCH GẶP MẶT</p><h1>Lịch hẹn</h1></div><p id="dates-description">Gửi lời mời đến người bạn đã kết đôi, chọn địa điểm và thời gian phù hợp.</p></header>
+      <div class="date-planning-grid">
+        <form id="date-invitation-form" class="date-invitation-form">
+          <h2>Tạo lời mời hẹn hò</h2>
+          <label class="field"><span>Mời người đã kết đôi</span><select name="recipientUserId" required><option value="">Chọn người</option></select></label>
+          <label class="field"><span>Địa điểm gợi ý</span><input name="venueName" list="date-venue-suggestions" minlength="2" maxlength="120" placeholder="Ví dụ: quán cà phê, nhà hàng" required><datalist id="date-venue-suggestions"><option value="Quán cà phê"><option value="Nhà hàng"><option value="Công viên"><option value="Bảo tàng"><option value="Rạp chiếu phim"></datalist></label>
+          <label class="field"><span>Địa chỉ</span><input name="venueAddress" maxlength="300" placeholder="Địa chỉ hoặc khu vực"></label>
+          <label class="field"><span>Liên kết địa điểm</span><input name="venueUrl" type="url" maxlength="500" placeholder="https://..."></label>
+          <label class="field"><span>Ngày và giờ</span><input name="startsAt" type="datetime-local" required></label>
+          <label class="field"><span>Lời nhắn</span><textarea name="message" rows="3" maxlength="500" placeholder="Bạn muốn nói gì với người ấy?"></textarea></label>
+          <p id="date-form-message" class="form-message" role="status" aria-live="polite" hidden></p>
+          <button class="submit-button" type="submit">Gửi lời mời</button>
+        </form>
+        <div class="date-list-panel">
+          <div class="journey-feed-heading"><h2 id="dates-list-heading">Lời mời và lịch sắp tới</h2><button id="dates-refresh" class="quiet-button" type="button">Làm mới</button></div>
+          <div id="date-list" class="date-list" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="events-page" class="app-page" hidden>
+      <header class="page-heading"><div><p class="eyebrow">GẶP GỠ CỘNG ĐỒNG</p><h1>Sự kiện</h1></div><p>Quản lý sự kiện sắp tới và gửi thông báo đến người dùng.</p></header>
+      <div class="community-events-grid">
+        <form id="community-event-form" class="community-event-form">
+          <h2>Tạo sự kiện</h2>
+          <label class="field"><span>Tên sự kiện</span><input name="name" minlength="2" maxlength="120" required></label>
+          <label class="field"><span>Địa điểm</span><input name="venueName" minlength="2" maxlength="160" required></label>
+          <label class="field"><span>Ngày và giờ</span><input name="startsAt" type="datetime-local" required></label>
+          <label class="field"><span>Mô tả</span><textarea name="description" maxlength="1000" rows="4"></textarea></label>
+          <p id="community-event-message" class="form-message" role="status" aria-live="polite" hidden></p>
+          <button class="submit-button" type="submit">Đăng sự kiện</button>
+        </form>
+        <div class="community-events-panel">
+          <div class="journey-feed-heading"><h2>Sắp diễn ra</h2><button id="community-events-refresh" class="quiet-button" type="button">Làm mới</button></div>
+          <div id="community-event-list" class="community-event-list" aria-live="polite"></div>
+        </div>
+      </div>
     </section>
 
     <section id="rooms-page" class="app-page" hidden>
@@ -181,7 +260,12 @@
           <label class="field profile-bio"><span>Giới thiệu</span><textarea name="bio" rows="4" maxlength="500" placeholder="Chia sẻ một chút về bạn"></textarea></label>
            <div class="profile-interests"><p class="field-title">Sở thích 💜</p><div id="interest-options" class="interest-options"></div></div>
           <p id="profile-message" class="form-message" role="status" aria-live="polite" hidden></p>
+<<<<<<< HEAD
            <button class="submit-button profile-save-button" type="submit">Lưu thay đổi <span aria-hidden="true">↗</span></button>
+=======
+          <button id="profile-tips-button" class="quiet-button" type="button">Gợi ý hoàn thiện hồ sơ</button>
+          <button class="submit-button" type="submit">Lưu hồ sơ <span aria-hidden="true">↗</span></button>
+>>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
         </form>
         <aside class="photo-manager">
            <h2>Góc ảnh của bạn 📸</h2>
@@ -190,31 +274,98 @@
           <div id="photo-list" class="photo-list"></div>
         </aside>
       </div>
+      <div class="account-settings-grid">
+        <form id="privacy-form" class="account-settings-panel">
+          <h2>Quyền riêng tư</h2>
+          <p>Chọn thông tin nào được hiển thị trên hồ sơ của bạn.</p>
+          <label class="privacy-option"><input name="hideAge" type="checkbox"><span>Ẩn tuổi</span></label>
+          <label class="privacy-option"><input name="hideCity" type="checkbox"><span>Ẩn thành phố</span></label>
+          <label class="privacy-option"><input name="hideOccupation" type="checkbox"><span>Ẩn công việc</span></label>
+          <label class="privacy-option"><input name="hideEducation" type="checkbox"><span>Ẩn học vấn</span></label>
+          <label class="privacy-option"><input name="isIncognito" type="checkbox"><span>Ẩn hồ sơ khỏi Khám phá</span></label>
+          <p id="privacy-message" class="form-message" role="status" aria-live="polite" hidden></p>
+          <button class="submit-button" type="submit">Lưu quyền riêng tư</button>
+        </form>
+        <form id="notification-preferences-form" class="account-settings-panel">
+          <h2>Cài đặt thông báo</h2>
+          <p>Chọn những hoạt động nào sẽ tạo thông báo trong Kiss.</p>
+          <label class="privacy-option"><input name="likeEnabled" type="checkbox"><span>Lượt thích và Super Like</span></label>
+          <label class="privacy-option"><input name="matchEnabled" type="checkbox"><span>Kết đôi</span></label>
+          <label class="privacy-option"><input name="chatEnabled" type="checkbox"><span>Tin nhắn mới</span></label>
+          <label class="privacy-option"><input name="commentEnabled" type="checkbox"><span>Bình luận bài viết</span></label>
+          <label class="privacy-option"><input name="dateEnabled" type="checkbox"><span>Lời mời và lịch hẹn</span></label>
+          <p id="notification-preferences-message" class="form-message" role="status" aria-live="polite" hidden></p>
+          <button class="submit-button" type="submit">Lưu cài đặt</button>
+        </form>
+        <section class="account-settings-panel">
+          <h2>Bảo mật tài khoản</h2>
+          <form id="change-password-form" class="account-security-form">
+            <label class="field"><span>Mật khẩu hiện tại</span><input name="currentPassword" type="password" autocomplete="current-password" required></label>
+            <label class="field"><span>Mật khẩu mới</span><input name="newPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label>
+            <p id="change-password-message" class="form-message" role="status" aria-live="polite" hidden></p>
+            <button class="submit-button" type="submit">Đổi mật khẩu</button>
+          </form>
+          <div class="email-verification-section">
+            <h3>Xác minh email</h3>
+            <p id="email-verification-status" role="status">Đang tải trạng thái...</p>
+            <button id="request-email-code" class="quiet-button" type="button">Gửi mã OTP qua email</button>
+            <form id="email-verification-form" class="email-verification-form">
+              <label class="field"><span>Mã OTP 6 chữ số</span><input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
+              <button class="submit-button" type="submit">Xác minh email</button>
+            </form>
+            <p id="email-verification-message" class="form-message" role="status" aria-live="polite" hidden></p>
+          </div>
+          <div class="session-list-heading"><h3>Thiết bị đăng nhập</h3><button id="revoke-other-sessions" class="quiet-button" type="button">Đăng xuất thiết bị khác</button></div>
+          <div id="session-list" class="session-list" aria-live="polite"></div>
+          <div class="session-list-heading"><h3>Người bạn đã chặn</h3></div>
+          <div id="blocked-users" class="session-list" aria-live="polite"></div>
+        </section>
+      </div>
     </section>
 
     <section id="matches-page" class="app-page" hidden>
-      <header class="page-heading"><div><p class="eyebrow">HAI CHIỀU CÙNG THÍCH</p><h1>Kết đôi</h1></div><p>Những kết nối đã bắt đầu.</p></header>
+      <header class="page-heading"><div><p class="eyebrow">HỒ SƠ BẠN ĐÃ THÍCH</p><h1>Lượt thích</h1></div><p>Đây là hồ sơ bạn đã thích. Bạn bè đã xác nhận kết nối nằm trong mục Bạn bè.</p></header>
       <div id="matches-results" class="profile-grid"></div>
     </section>
 
+    <section id="passed-page" class="app-page" hidden>
+      <header class="page-heading"><div><p class="eyebrow">HỒ SƠ BẠN ĐÃ BỎ QUA</p><h1>Từ chối</h1></div><p>Những hồ sơ bạn đã bỏ qua sẽ được lưu và hiển thị ở đây.</p></header>
+      <p id="passed-message" class="form-message" role="status" aria-live="polite" hidden></p>
+      <div id="passed-results" class="profile-grid"></div>
+    </section>
+
     <section id="chat-page" class="app-page chat-page" hidden>
+<<<<<<< HEAD
        <header class="page-heading"><div><p class="eyebrow">BẮT ĐẦU MỘT CUỘC TRÒ CHUYỆN</p><h1>Tin nhắn 💬</h1></div><p>Chỉ những người đã kết đôi mới có thể nhắn tin với nhau.</p></header>
       <div id="chat-layout" class="chat-layout">
         <aside class="chat-contact-panel" aria-label="Danh sách kết đôi">
           <div class="chat-contact-heading"><h2>Kết đôi</h2><span id="chat-contact-count">0</span></div>
+=======
+      <header class="page-heading"><div><p class="eyebrow">BẮT ĐẦU MỘT CUỘC TRÒ CHUYỆN</p><h1>Tin nhắn</h1></div><p>Bạn có thể nhắn tin với người đã thích mình hoặc người bạn đã thích.</p></header>
+      <div class="chat-layout">
+        <aside class="chat-contact-panel" aria-label="Danh sách trò chuyện">
+          <div class="chat-contact-heading"><h2>Trò chuyện</h2><span id="chat-contact-count">0</span></div>
+>>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
           <div id="chat-contact-list" class="chat-contact-list"></div>
         </aside>
         <section class="chat-thread" aria-label="Cuộc trò chuyện">
-          <div id="chat-empty" class="chat-empty"><span aria-hidden="true">♡</span><strong>Chọn một kết đôi để nhắn tin</strong><p>Bạn có thể gửi tin nhắn, ảnh, video và emoji.</p></div>
+          <div id="chat-empty" class="chat-empty"><span aria-hidden="true">♡</span><strong>Chọn một người bạn để nhắn tin</strong><p>Bạn có thể gửi tin nhắn, ảnh, video và emoji.</p></div>
           <header id="chat-thread-header" class="chat-thread-header" hidden>
             <button id="chat-back-to-list" class="chat-back-button" type="button">‹ Danh sách</button>
             <div id="chat-peer-avatar" class="chat-peer-avatar"></div>
-            <div><strong id="chat-peer-name"></strong><span>Đã kết đôi với bạn</span></div>
+            <div><strong id="chat-peer-name"></strong><span>Đã trở thành bạn bè</span></div>
+            <button id="chat-peer-block" class="quiet-button" type="button">Chặn</button>
           </header>
           <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions text"></div>
           <p id="chat-status" class="form-message chat-status" role="status" aria-live="polite" hidden></p>
           <form id="chat-form" class="chat-composer" hidden>
             <div class="chat-composer-tools">
+              <button id="chat-gift-toggle" class="chat-tool-button" type="button" aria-label="Chọn quà">🎁</button>
+              <button id="chat-suggestion-toggle" class="chat-tool-button" type="button">Gợi ý câu mở đầu</button>
+              <div id="chat-gift-picker" class="chat-emoji-picker chat-extra-picker" hidden aria-label="Quà tặng">
+                <button type="button" data-chat-gift="🌹 Hoa hồng">🌹</button><button type="button" data-chat-gift="☕ Cà phê">☕</button><button type="button" data-chat-gift="🍰 Bánh ngọt">🍰</button><button type="button" data-chat-gift="🎁 Hộp quà">🎁</button><button type="button" data-chat-gift="⭐ Ngôi sao">⭐</button>
+              </div>
+              <div id="chat-suggestion-picker" class="chat-suggestion-picker" hidden></div>
               <div class="chat-emoji-wrap">
                 <button id="chat-emoji-toggle" class="chat-tool-button" type="button" aria-label="Chọn emoji" aria-expanded="false">☺</button>
                 <div id="chat-emoji-picker" class="chat-emoji-picker" hidden aria-label="Emoji">
@@ -234,12 +385,13 @@
     </section>
 
     <section id="connections-page" class="app-page" hidden>
-      <header class="page-heading"><div><p class="eyebrow">MỞ RỘNG KẾT NỐI</p><h1>Bạn bè</h1></div><p>Tìm người phù hợp và quản lý lời mời kết nối.</p></header>
+      <header class="page-heading"><div><p class="eyebrow">KẾT NỐI HAI CHIỀU</p><h1>Bạn bè</h1></div><p>Danh sách này hiển thị giống nhau ở cả hai tài khoản sau khi lời mời được chấp nhận.</p></header>
+      <button id="connections-refresh" class="quiet-button" type="button">Làm mới danh sách</button>
       <form id="people-search-form" class="people-search"><label class="field"><span>Tìm người dùng</span><input name="q" type="search" maxlength="100" placeholder="Nhập tên, thành phố hoặc giới thiệu"></label><button class="submit-button" type="submit">Tìm kiếm</button></form>
       <p id="social-message" class="form-message" role="status" aria-live="polite" hidden></p>
       <h2 class="social-section-title">Kết quả tìm kiếm</h2><div id="people-results" class="social-user-grid"></div>
       <div class="connection-columns"><section><h2 class="social-section-title">Lời mời đã nhận</h2><div id="incoming-requests" class="social-list"></div></section><section><h2 class="social-section-title">Lời mời đã gửi</h2><div id="outgoing-requests" class="social-list"></div></section></div>
-      <h2 class="social-section-title">Bạn bè</h2><div id="friends-list" class="social-user-grid"></div>
+      <h2 class="social-section-title">Bạn bè đã kết nối</h2><div id="friends-list" class="social-user-grid"></div>
     </section>
 
     <section id="messages-page" class="app-page" hidden>
@@ -249,7 +401,15 @@
     </section>
 
     <section id="journey-page" class="app-page journey-page" hidden>
+<<<<<<< HEAD
       <header class="page-heading"><div><p class="eyebrow">CHIA SẺ NHỮNG ĐIỀU ĐANG DIỄN RA</p><h1>Hành trình 🌈</h1></div><p>Một khoảnh khắc nhỏ cũng có thể mở đầu một câu chuyện.</p></header>
+=======
+      <header class="page-heading"><div><p class="eyebrow">CHIA SẺ NHỮNG ĐIỀU ĐANG DIỄN RA</p><h1>Hành trình</h1></div><p>Một khoảnh khắc nhỏ cũng có thể mở đầu một câu chuyện.</p></header>
+      <div class="journey-stories-panel">
+        <form id="story-form" class="story-form"><label class="field"><span>Story của bạn · tự hết hạn sau 24 giờ</span><textarea name="content" rows="2" maxlength="500" placeholder="Chia sẻ một khoảnh khắc ngắn..." required></textarea></label><button class="submit-button" type="submit">Đăng story</button></form>
+        <div id="story-list" class="story-list" aria-live="polite"></div>
+      </div>
+>>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
       <form id="journey-form" class="journey-composer">
         <div class="journey-composer-top"><span id="journey-composer-avatar" class="account-avatar" aria-hidden="true">K</span><label class="field journey-content-field"><span>Hôm nay bạn muốn chia sẻ điều gì?</span><textarea name="content" rows="4" maxlength="2000" placeholder="Viết một trạng thái, kể về ngày hôm nay..."></textarea></label></div>
         <div class="journey-character-count" id="journey-character-count">0/2000</div>
@@ -265,13 +425,52 @@
       <div id="journey-feed" class="journey-feed" aria-live="polite"></div>
     </section>
     <section id="admin-page" class="app-page" hidden>
-      <header class="page-heading"><div><p class="eyebrow">CHỦ ỨNG DỤNG</p><h1>Dữ liệu Kiss</h1></div><p>Tổng quan và xuất dữ liệu tài khoản.</p></header>
-      <p class="admin-data-note">Bản xuất gồm hồ sơ, sở thích và hoạt động trên hệ thống; không gồm hash mật khẩu hoặc nội dung tin nhắn riêng.</p>
+      <header class="page-heading"><div><p class="eyebrow">QUẢN LÝ HỆ THỐNG</p><h1>Quản trị viên</h1></div><p>Quản lý tài khoản và dữ liệu Kiss.</p></header>
+      <p class="admin-data-note">Bạn có thể thêm, sửa và xóa tài khoản. Mật khẩu được mã hóa và không hiển thị trong danh sách hay bản xuất.</p>
       <div id="admin-stat-grid" class="admin-stat-grid" aria-live="polite"></div>
       <div class="admin-users-panel">
-        <div class="journey-feed-heading"><h2>Tài khoản mới</h2><div class="admin-actions"><button id="admin-refresh" class="quiet-button" type="button">Làm mới</button><button id="admin-export" class="submit-button" type="button">Tải JSON</button></div></div>
+        <div class="journey-feed-heading"><h2 id="admin-user-form-title">Thêm tài khoản</h2></div>
+        <form id="admin-user-form" class="admin-user-form">
+          <label class="field">Họ tên<input name="name" type="text" minlength="2" maxlength="80" autocomplete="name" required></label>
+          <label class="field">Email<input name="email" type="email" maxlength="254" autocomplete="email" required></label>
+          <label class="field">Mật khẩu <small id="admin-password-hint">Tối thiểu 8 ký tự</small><input id="admin-user-password" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label>
+          <label class="field">Ngày sinh<input name="birthDate" type="date" required></label>
+          <label class="field">Giới tính<select name="gender" required><option value="Woman">Nữ</option><option value="Man">Nam</option><option value="NonBinary">Phi nhị nguyên</option><option value="PreferNotToSay">Không muốn nêu</option></select></label>
+          <label class="field">Thành phố<input name="city" type="text" maxlength="100"></label>
+          <label class="field">Công việc<input name="occupation" type="text" maxlength="120"></label>
+          <label class="field">Học vấn<input name="education" type="text" maxlength="120"></label>
+          <label class="field">Đang tìm<select name="lookingFor" required><option value="Dating">Hẹn hò</option><option value="Friendship">Bạn bè</option><option value="Relationship">Mối quan hệ nghiêm túc</option></select></label>
+          <label class="field">Vai trò<select name="role"><option value="User">Người dùng</option><option value="Support">Hỗ trợ</option><option value="Moderator">Kiểm duyệt viên</option><option value="Admin">Quản trị viên</option></select></label>
+          <label class="field admin-user-bio">Giới thiệu<textarea name="bio" maxlength="500" rows="3"></textarea></label>
+          <div class="admin-form-actions"><button id="admin-user-submit" class="submit-button" type="submit">Thêm tài khoản</button><button id="admin-user-cancel" class="quiet-button" type="button" hidden>Hủy sửa</button></div>
+        </form>
+      </div>
+      <div class="admin-users-panel">
+        <div class="journey-feed-heading"><h2>Danh sách tài khoản</h2><div class="admin-actions"><button id="admin-refresh" class="quiet-button" type="button">Làm mới</button><button id="admin-export" class="submit-button" type="button">Tải JSON</button></div></div>
         <div id="admin-users" class="admin-users" aria-live="polite"></div>
         <p id="admin-message" class="form-message" role="status" aria-live="polite" hidden></p>
+      </div>
+      <div class="admin-users-panel">
+        <div class="journey-feed-heading"><h2 id="admin-reports-heading">Báo cáo cần xử lý</h2><button id="admin-reports-refresh" class="quiet-button" type="button">Làm mới</button></div>
+        <div id="admin-reports" class="admin-reports" aria-live="polite"></div>
+      </div>
+      <div id="admin-announcement-panel" class="admin-users-panel">
+        <div class="journey-feed-heading"><h2>Gửi thông báo hệ thống</h2></div>
+        <form id="admin-announcement-form" class="admin-announcement-form">
+          <label class="field">Tiêu đề<input name="title" maxlength="120" minlength="2" required></label>
+          <label class="field">Nội dung<textarea name="body" maxlength="500" minlength="2" rows="3" required></textarea></label>
+          <p id="admin-announcement-message" class="form-message" role="status" aria-live="polite" hidden></p>
+          <button class="submit-button" type="submit">Gửi đến người dùng</button>
+        </form>
+      </div>
+      <div id="admin-analytics-panel" class="admin-users-panel">
+        <div class="journey-feed-heading"><h2>Hoạt động 30 ngày qua</h2></div>
+        <div id="admin-analytics" class="admin-analytics" aria-label="Biểu đồ người dùng mới, lượt tương tác và kết đôi"></div>
+        <div class="admin-analytics-legend"><span><i class="analytics-user"></i>Tài khoản mới</span><span><i class="analytics-swipe"></i>Lượt tương tác</span><span><i class="analytics-match"></i>Kết đôi</span></div>
+      </div>
+      <div id="admin-audit-panel" class="admin-users-panel">
+        <div class="journey-feed-heading"><h2>Nhật ký quản trị</h2></div>
+        <div id="admin-audit-list" class="admin-audit-list" aria-live="polite"></div>
       </div>
     </section>
       <footer class="app-footer"><span>Kiss <span>♥</span> kết nối chân thành</span></footer>

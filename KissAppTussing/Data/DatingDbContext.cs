@@ -19,15 +19,30 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
     public DbSet<JourneyPost> JourneyPosts => Set<JourneyPost>();
     public DbSet<JourneyPostLike> JourneyPostLikes => Set<JourneyPostLike>();
     public DbSet<JourneyComment> JourneyComments => Set<JourneyComment>();
+    public DbSet<Story> Stories => Set<Story>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<ConnectionRequest> ConnectionRequests => Set<ConnectionRequest>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<Message> Messages => Set<Message>();
+<<<<<<< HEAD
     public DbSet<Room> Rooms => Set<Room>();
     public DbSet<RoomMember> RoomMembers => Set<RoomMember>();
     public DbSet<RoomMessage> RoomMessages => Set<RoomMessage>();
     public DbSet<Report> Reports => Set<Report>();
+=======
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
+    public DbSet<HiddenChatMessage> HiddenChatMessages => Set<HiddenChatMessage>();
+    public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
+    public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
+    public DbSet<DateInvitation> DateInvitations => Set<DateInvitation>();
+    public DbSet<DateReview> DateReviews => Set<DateReview>();
+    public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
+    public DbSet<ContentReport> ContentReports => Set<ContentReport>();
+    public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
+    public DbSet<CommunityEvent> CommunityEvents => Set<CommunityEvent>();
+    public DbSet<EventAttendance> EventAttendances => Set<EventAttendance>();
+>>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,6 +54,12 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
             .HasConversion(UtcDateTimeOffsetConverter);
         modelBuilder.Entity<User>()
             .Property(user => user.TermsAcceptedAt)
+            .HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<User>()
+            .Property(user => user.LastSeenAt)
+            .HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<User>()
+            .Property(user => user.EmailVerifiedAt)
             .HasConversion(UtcDateTimeOffsetConverter);
         modelBuilder.Entity<User>()
             .Property(user => user.Name)
@@ -70,6 +91,10 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
         modelBuilder.Entity<User>()
             .Property(user => user.LookingFor)
             .HasMaxLength(32);
+        modelBuilder.Entity<User>()
+            .Property(user => user.Role)
+            .HasMaxLength(24)
+            .HasDefaultValue("User");
 
         modelBuilder.Entity<Swipe>()
             .HasIndex(swipe => new { swipe.FromUserId, swipe.ToUserId })
@@ -83,6 +108,9 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
             .IsUnique();
         modelBuilder.Entity<DatingMatch>()
             .Property(match => match.MatchedAt)
+            .HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<DatingMatch>()
+            .Property(match => match.EndedAt)
             .HasConversion(UtcDateTimeOffsetConverter);
 
         modelBuilder.Entity<DatingMatch>()
@@ -187,6 +215,17 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
             .WithMany()
             .HasForeignKey(comment => comment.UserId)
             .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<JourneyComment>()
+            .HasOne(comment => comment.ParentComment)
+            .WithMany(comment => comment.Replies)
+            .HasForeignKey(comment => comment.ParentCommentId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<Story>().Property(story => story.Content).HasMaxLength(500);
+        modelBuilder.Entity<Story>().Property(story => story.CreatedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<Story>().Property(story => story.ExpiresAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<Story>().HasIndex(story => new { story.ExpiresAt, story.UserId });
+        modelBuilder.Entity<Story>().HasOne(story => story.User).WithMany().HasForeignKey(story => story.UserId).OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<ChatMessage>()
             .Property(message => message.Content)
@@ -200,6 +239,8 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
         modelBuilder.Entity<ChatMessage>()
             .Property(message => message.SentAt)
             .HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<ChatMessage>().Property(message => message.ReadAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<ChatMessage>().Property(message => message.RevokedAt).HasConversion(UtcDateTimeOffsetConverter);
         modelBuilder.Entity<ChatMessage>()
             .HasIndex(message => new { message.SenderId, message.RecipientId, message.SentAt });
         modelBuilder.Entity<ChatMessage>()
@@ -241,9 +282,15 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
         modelBuilder.Entity<ConnectionRequest>().Property(connection => connection.Status).HasMaxLength(16);
         modelBuilder.Entity<ConnectionRequest>().Property(connection => connection.CreatedAt).HasConversion(UtcDateTimeOffsetConverter);
         modelBuilder.Entity<ConnectionRequest>().HasIndex(connection => new { connection.RequestedByUserId, connection.Status });
+<<<<<<< HEAD
         modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.FirstUserId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.SecondUserId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.RequestedByUserId).OnDelete(DeleteBehavior.Restrict);
+=======
+        modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.FirstUserId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.SecondUserId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.RequestedByUserId).OnDelete(DeleteBehavior.NoAction);
+>>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
 
         modelBuilder.Entity<Conversation>()
             .HasIndex(conversation => new { conversation.FirstUserId, conversation.SecondUserId })
@@ -251,6 +298,7 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
         modelBuilder.Entity<Conversation>().Property(conversation => conversation.FirstUserReadAt).HasConversion(UtcDateTimeOffsetConverter);
         modelBuilder.Entity<Conversation>().Property(conversation => conversation.SecondUserReadAt).HasConversion(UtcDateTimeOffsetConverter);
         modelBuilder.Entity<Conversation>().Property(conversation => conversation.UpdatedAt).HasConversion(UtcDateTimeOffsetConverter);
+<<<<<<< HEAD
         modelBuilder.Entity<Conversation>().HasOne<User>().WithMany().HasForeignKey(conversation => conversation.FirstUserId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Conversation>().HasOne<User>().WithMany().HasForeignKey(conversation => conversation.SecondUserId).OnDelete(DeleteBehavior.Restrict);
 
@@ -286,11 +334,94 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
         modelBuilder.Entity<Report>().HasOne<User>().WithMany().HasForeignKey(report => report.TargetUserId).OnDelete(DeleteBehavior.NoAction);
         modelBuilder.Entity<Report>().HasOne<Room>().WithMany().HasForeignKey(report => report.RoomId).OnDelete(DeleteBehavior.NoAction);
         modelBuilder.Entity<Report>().HasOne<RoomMessage>().WithMany().HasForeignKey(report => report.MessageId).OnDelete(DeleteBehavior.NoAction);
+=======
+        modelBuilder.Entity<Conversation>().HasOne<User>().WithMany().HasForeignKey(conversation => conversation.FirstUserId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<Conversation>().HasOne<User>().WithMany().HasForeignKey(conversation => conversation.SecondUserId).OnDelete(DeleteBehavior.NoAction);
+>>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
 
         modelBuilder.Entity<Message>().Property(message => message.Content).HasMaxLength(2000);
         modelBuilder.Entity<Message>().Property(message => message.SentAt).HasConversion(UtcDateTimeOffsetConverter);
         modelBuilder.Entity<Message>().HasIndex(message => new { message.ConversationId, message.SentAt, message.Id });
         modelBuilder.Entity<Message>().HasOne(message => message.Conversation).WithMany(conversation => conversation.Messages).HasForeignKey(message => message.ConversationId).OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Message>().HasOne<User>().WithMany().HasForeignKey(message => message.SenderId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Message>().HasOne<User>().WithMany().HasForeignKey(message => message.SenderId).OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<UserSession>().Property(session => session.DeviceName).HasMaxLength(160);
+        modelBuilder.Entity<UserSession>().Property(session => session.CreatedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<UserSession>().Property(session => session.LastSeenAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<UserSession>().Property(session => session.RevokedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<UserSession>().HasIndex(session => new { session.UserId, session.RevokedAt });
+        modelBuilder.Entity<UserSession>().HasOne<User>().WithMany().HasForeignKey(session => session.UserId).OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<HiddenChatMessage>().Property(item => item.HiddenAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<HiddenChatMessage>().HasIndex(item => new { item.MessageId, item.UserId }).IsUnique();
+        modelBuilder.Entity<HiddenChatMessage>().HasOne<ChatMessage>().WithMany().HasForeignKey(item => item.MessageId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<HiddenChatMessage>().HasOne<User>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<EmailVerificationToken>().Property(token => token.CodeHash).HasMaxLength(64);
+        modelBuilder.Entity<EmailVerificationToken>().Property(token => token.CreatedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<EmailVerificationToken>().Property(token => token.ExpiresAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<EmailVerificationToken>().Property(token => token.ConsumedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<EmailVerificationToken>().HasIndex(token => token.CodeHash).IsUnique();
+        modelBuilder.Entity<EmailVerificationToken>().HasIndex(token => new { token.UserId, token.ExpiresAt });
+        modelBuilder.Entity<EmailVerificationToken>().HasOne<User>().WithMany().HasForeignKey(token => token.UserId).OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<UserNotification>().Property(item => item.Type).HasMaxLength(32);
+        modelBuilder.Entity<UserNotification>().Property(item => item.Title).HasMaxLength(120);
+        modelBuilder.Entity<UserNotification>().Property(item => item.Body).HasMaxLength(500);
+        modelBuilder.Entity<UserNotification>().Property(item => item.CreatedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<UserNotification>().Property(item => item.ReadAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<UserNotification>().HasIndex(item => new { item.UserId, item.CreatedAt });
+        modelBuilder.Entity<UserNotification>().HasOne<User>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DateInvitation>().Property(item => item.VenueName).HasMaxLength(120);
+        modelBuilder.Entity<DateInvitation>().Property(item => item.VenueAddress).HasMaxLength(300);
+        modelBuilder.Entity<DateInvitation>().Property(item => item.VenueUrl).HasMaxLength(500);
+        modelBuilder.Entity<DateInvitation>().Property(item => item.Message).HasMaxLength(500);
+        modelBuilder.Entity<DateInvitation>().Property(item => item.Status).HasMaxLength(16);
+        modelBuilder.Entity<DateInvitation>().Property(item => item.StartsAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<DateInvitation>().Property(item => item.CreatedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<DateInvitation>().Property(item => item.UpdatedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<DateInvitation>().Property(item => item.ReminderSentAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<DateInvitation>().HasIndex(item => new { item.RecipientUserId, item.Status });
+        modelBuilder.Entity<DateInvitation>().HasIndex(item => new { item.StartsAt, item.Status });
+        modelBuilder.Entity<DateInvitation>().HasOne(item => item.Organizer).WithMany().HasForeignKey(item => item.OrganizerUserId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<DateInvitation>().HasOne(item => item.Recipient).WithMany().HasForeignKey(item => item.RecipientUserId).OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<DateReview>().Property(item => item.Comment).HasMaxLength(500);
+        modelBuilder.Entity<DateReview>().Property(item => item.CreatedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<DateReview>().HasIndex(item => new { item.InvitationId, item.ReviewerUserId }).IsUnique();
+        modelBuilder.Entity<DateReview>().HasOne(item => item.Invitation).WithMany(invitation => invitation.Reviews).HasForeignKey(item => item.InvitationId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<DateReview>().HasOne(item => item.Reviewer).WithMany().HasForeignKey(item => item.ReviewerUserId).OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<UserBlock>().Property(item => item.CreatedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<UserBlock>().HasIndex(item => new { item.BlockerUserId, item.BlockedUserId }).IsUnique();
+        modelBuilder.Entity<UserBlock>().HasOne<User>().WithMany().HasForeignKey(item => item.BlockerUserId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<UserBlock>().HasOne<User>().WithMany().HasForeignKey(item => item.BlockedUserId).OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ContentReport>().Property(item => item.TargetType).HasMaxLength(24);
+        modelBuilder.Entity<ContentReport>().Property(item => item.Reason).HasMaxLength(500);
+        modelBuilder.Entity<ContentReport>().Property(item => item.Status).HasMaxLength(16);
+        modelBuilder.Entity<ContentReport>().Property(item => item.CreatedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<ContentReport>().Property(item => item.ReviewedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<ContentReport>().HasIndex(item => new { item.Status, item.CreatedAt });
+        modelBuilder.Entity<ContentReport>().HasOne<User>().WithMany().HasForeignKey(item => item.ReporterUserId).OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<AdminAuditLog>().Property(item => item.Action).HasMaxLength(32);
+        modelBuilder.Entity<AdminAuditLog>().Property(item => item.TargetType).HasMaxLength(32);
+        modelBuilder.Entity<AdminAuditLog>().Property(item => item.Details).HasMaxLength(500);
+        modelBuilder.Entity<AdminAuditLog>().Property(item => item.CreatedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<AdminAuditLog>().HasIndex(item => item.CreatedAt);
+
+        modelBuilder.Entity<CommunityEvent>().Property(item => item.Name).HasMaxLength(120);
+        modelBuilder.Entity<CommunityEvent>().Property(item => item.Description).HasMaxLength(1000);
+        modelBuilder.Entity<CommunityEvent>().Property(item => item.VenueName).HasMaxLength(160);
+        modelBuilder.Entity<CommunityEvent>().Property(item => item.StartsAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<CommunityEvent>().Property(item => item.CreatedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<CommunityEvent>().HasIndex(item => item.StartsAt);
+        modelBuilder.Entity<CommunityEvent>().HasOne(item => item.Creator).WithMany().HasForeignKey(item => item.CreatorUserId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<EventAttendance>().HasKey(item => new { item.EventId, item.UserId });
+        modelBuilder.Entity<EventAttendance>().Property(item => item.JoinedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<EventAttendance>().HasOne(item => item.Event).WithMany(item => item.Attendees).HasForeignKey(item => item.EventId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<EventAttendance>().HasOne(item => item.User).WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.NoAction);
     }
 }

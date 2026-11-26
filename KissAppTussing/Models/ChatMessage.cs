@@ -11,4 +11,7 @@ internal sealed class ChatMessage
     public string? MediaFileName { get; set; }
     public string? MediaType { get; set; }
     public DateTimeOffset SentAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? ReadAt { get; set; }
+    public DateTimeOffset? RevokedAt { get; set; }
+    public bool IsModerated { get; set; }
 }

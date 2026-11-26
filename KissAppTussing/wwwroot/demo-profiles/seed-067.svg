@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 360" role="img" aria-label="Ảnh đại diện minh họa 067">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#e2e9ec"/><stop offset="1" stop-color="#9eafb9"/></linearGradient></defs>
+<rect width="320" height="360" fill="url(#bg)"/>
+<circle cx="89" cy="68" r="54" fill="#fff" opacity=".16"/>
+<circle cx="276" cy="300" r="78" fill="#fff" opacity=".12"/>
+<path d="M0 300 Q70 267 132 295 T320 288 V360 H0Z" fill="#fff" opacity=".12"/>
+<path d="M36 360 Q43 267 116 255 L160 278 L204 255 Q277 267 284 360Z" fill="#608a62"/>
+<path d="M132 233 H188 V284 Q160 305 132 284Z" fill="#b97858"/>
+<path d="M87 155 C76 91 117 47 164 54 C214 59 241 98 231 148 L249 246 Q236 282 207 250 L197 209 L104 220 L90 267 Q68 245 76 203 Z" fill="#202d37"/>
+<path d="M95 147 C88 108 107 78 160 77 C213 78 232 108 225 147 L211 190 Q205 241 160 252 Q115 241 109 190Z" fill="#b97858"/>
+<ellipse cx="97" cy="174" rx="10" ry="16" fill="#b97858"/><ellipse cx="223" cy="174" rx="10" ry="16" fill="#b97858"/>
+<path d="M90 143 C86 87 121 57 164 57 C209 57 235 91 232 145 Q215 110 191 99 Q163 110 140 99 Q116 113 100 157 Z" fill="#202d37"/>
+<path d="M122 145 Q133 139 143 145" fill="none" stroke="#202d37" stroke-width="4" stroke-linecap="round"/>
+<path d="M177 145 Q187 139 198 145" fill="none" stroke="#202d37" stroke-width="4" stroke-linecap="round"/>
+<ellipse cx="133" cy="154" rx="4" ry="5" fill="#302925"/><ellipse cx="187" cy="154" rx="4" ry="5" fill="#302925"/>
+<path d="M160 161 Q154 179 159 189 Q163 193 169 189" fill="none" stroke="#ad765f" stroke-width="3" stroke-linecap="round"/>
+<path d="M145 211 Q160 223 175 211" fill="none" stroke="#a8515c" stroke-width="4" stroke-linecap="round"/>
+<circle cx="94" cy="184" r="5" fill="#efc65f"/><circle cx="226" cy="184" r="5" fill="#efc65f"/>
+<path d="M147 257 Q160 266 173 257" fill="none" stroke="#fff" stroke-width="4" opacity=".8"/>
+</svg>

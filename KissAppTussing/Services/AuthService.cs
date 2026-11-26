@@ -19,6 +19,7 @@ internal sealed class AuthService(
 
     public async Task<RegistrationResult> RegisterAsync(
         RegisterRequest request,
+        string deviceName,
         CancellationToken cancellationToken)
     {
         if (!request.AcceptTerms)
@@ -62,13 +63,15 @@ internal sealed class AuthService(
         };
         user.PasswordHash = passwordHasher.HashPassword(user, request.Password);
 
+        var session = CreateSession(user.Id, deviceName);
         database.Users.Add(user);
+        database.UserSessions.Add(session);
         await database.SaveChangesAsync(cancellationToken);
 
-        return new RegistrationResult(RegistrationStatus.Created, CreateAuthResponse(user));
+        return new RegistrationResult(RegistrationStatus.Created, CreateAuthResponse(user, session.Id));
     }
 
-    public async Task<AuthResponse?> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
+    public async Task<AuthResponse?> LoginAsync(LoginRequest request, string deviceName, CancellationToken cancellationToken)
     {
         var normalizedEmail = request.Email.Trim().ToUpperInvariant();
         var user = await database.Users
@@ -83,11 +86,96 @@ internal sealed class AuthService(
             return null;
         }
 
+        if (user.IsSuspended) return null;
+
         var verification = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
-        return verification == PasswordVerificationResult.Failed ? null : CreateAuthResponse(user);
+        if (verification == PasswordVerificationResult.Failed) return null;
+
+        var session = CreateSession(user.Id, deviceName);
+        user.LastSeenAt = session.LastSeenAt;
+        database.UserSessions.Add(session);
+        await database.SaveChangesAsync(cancellationToken);
+        return CreateAuthResponse(user, session.Id);
     }
 
-    private AuthResponse CreateAuthResponse(User user)
+    public async Task<bool> ChangePasswordAsync(
+        Guid userId,
+        Guid currentSessionId,
+        ChangePasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var user = await database.Users.SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
+        if (user is null || passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.CurrentPassword) == PasswordVerificationResult.Failed)
+        {
+            return false;
+        }
+
+        user.PasswordHash = passwordHasher.HashPassword(user, request.NewPassword);
+        var now = DateTimeOffset.UtcNow;
+        var otherSessions = await database.UserSessions
+            .Where(session => session.UserId == userId && session.Id != currentSessionId && session.RevokedAt == null)
+            .ToListAsync(cancellationToken);
+        foreach (var session in otherSessions) session.RevokedAt = now;
+        await database.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<IReadOnlyList<UserSessionResponse>> GetSessionsAsync(
+        Guid userId,
+        Guid currentSessionId,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var current = await database.UserSessions.SingleOrDefaultAsync(
+            session => session.Id == currentSessionId && session.UserId == userId && session.RevokedAt == null,
+            cancellationToken);
+        if (current is null) return [];
+
+        current.LastSeenAt = now;
+        var user = await database.Users.SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
+        if (user is not null) user.LastSeenAt = now;
+        await database.SaveChangesAsync(cancellationToken);
+
+        return await database.UserSessions.AsNoTracking()
+            .Where(session => session.UserId == userId && session.RevokedAt == null)
+            .OrderByDescending(session => session.LastSeenAt)
+            .Select(session => new UserSessionResponse(
+                session.Id, session.DeviceName, session.CreatedAt, session.LastSeenAt, session.Id == currentSessionId))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<bool> RevokeSessionAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken)
+    {
+        var session = await database.UserSessions.SingleOrDefaultAsync(
+            candidate => candidate.UserId == userId && candidate.Id == sessionId && candidate.RevokedAt == null,
+            cancellationToken);
+        if (session is null) return false;
+        session.RevokedAt = DateTimeOffset.UtcNow;
+        await database.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<int> RevokeOtherSessionsAsync(Guid userId, Guid currentSessionId, CancellationToken cancellationToken)
+    {
+        var sessions = await database.UserSessions
+            .Where(session => session.UserId == userId && session.Id != currentSessionId && session.RevokedAt == null)
+            .ToListAsync(cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        foreach (var session in sessions) session.RevokedAt = now;
+        await database.SaveChangesAsync(cancellationToken);
+        return sessions.Count;
+    }
+
+    public Task<bool> RevokeCurrentSessionAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken) =>
+        RevokeSessionAsync(userId, sessionId, cancellationToken);
+
+    private static UserSession CreateSession(Guid userId, string deviceName) => new()
+    {
+        UserId = userId,
+        DeviceName = string.IsNullOrWhiteSpace(deviceName) ? "Thiết bị không xác định" : deviceName.Trim()[..Math.Min(deviceName.Trim().Length, 160)]
+    };
+
+    private AuthResponse CreateAuthResponse(User user, Guid sessionId)
     {
         var now = DateTimeOffset.UtcNow;
         var expiresAt = now.Add(TokenLifetime);
@@ -99,7 +187,9 @@ internal sealed class AuthService(
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email)
+            new Claim(JwtRegisteredClaimNames.Email, user.Email),
+            new Claim(ClaimTypes.Role, user.Role),
+            new Claim("sid", sessionId.ToString())
         };
         var token = new JwtSecurityToken(
             issuer,

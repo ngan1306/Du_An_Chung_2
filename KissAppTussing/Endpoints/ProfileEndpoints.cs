@@ -28,6 +28,23 @@ internal static class ProfileEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status400BadRequest);
 
+        profiles.MapPut("/me/privacy", UpdatePrivacyAsync)
+            .WithName("UpdateMyPrivacy")
+            .WithSummary("Save profile visibility and incognito settings");
+
+        profiles.MapGet("/me/privacy", GetPrivacyAsync)
+            .WithName("GetMyPrivacy")
+            .WithSummary("Get profile visibility and incognito settings");
+
+        profiles.MapPut("/me/location", UpdateLocationAsync)
+            .WithName("UpdateMyLocation")
+            .WithSummary("Save GPS coordinates for distance filtering")
+            .ProducesValidationProblem();
+
+        profiles.MapPost("/me/presence", MarkOnlineAsync)
+            .WithName("UpdateMyPresence")
+            .WithSummary("Update the current user's online status");
+
         profiles.MapGet("/{profileId:guid}", GetProfileAsync)
             .WithName("GetProfile")
             .WithSummary("Get a public dating profile");
@@ -44,6 +61,7 @@ internal static class ProfileEndpoints
         string? city,
         string? lookingFor,
         Guid? interestId,
+        double? radiusKm,
         System.Security.Claims.ClaimsPrincipal principal,
         IDatingService datingService,
         CancellationToken cancellationToken)
@@ -76,9 +94,27 @@ internal static class ProfileEndpoints
             });
         }
 
-        var pageSize = Math.Clamp(limit ?? 20, 1, 100);
-        return TypedResults.Ok(await datingService.DiscoverAsync(
-            CurrentUser.GetId(principal), pageSize, search, gender, minAge, maxAge, city, lookingFor, interestId, cancellationToken));
+        if (radiusKm is < 1 or > 500)
+        {
+            return TypedResults.BadRequest(new ProblemDetails
+            {
+                Title = "Invalid search radius",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = "Distance must be between 1 and 500 kilometers."
+            });
+        }
+
+        var pageSize = Math.Clamp(limit ?? 20, 1, 150);
+        var profiles = await datingService.DiscoverAsync(
+            CurrentUser.GetId(principal), pageSize, search, gender, minAge, maxAge, city, lookingFor, interestId, radiusKm, cancellationToken);
+        return profiles is null
+            ? TypedResults.BadRequest(new ProblemDetails
+            {
+                Title = "GPS location required",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = "Hãy cập nhật vị trí GPS của bạn trước khi lọc theo khoảng cách."
+            })
+            : TypedResults.Ok(profiles);
     }
 
     private static async Task<Results<Ok<UserProfileResponse>, NotFound>> GetMyProfileAsync(
@@ -86,9 +122,45 @@ internal static class ProfileEndpoints
         IDatingService datingService,
         CancellationToken cancellationToken)
     {
-        var profile = await datingService.GetProfileAsync(CurrentUser.GetId(principal), cancellationToken);
+        var profile = await datingService.GetMyProfileAsync(CurrentUser.GetId(principal), cancellationToken);
         return profile is null ? TypedResults.NotFound() : TypedResults.Ok(profile);
     }
+
+    private static async Task<Results<Ok<PrivacySettingsResponse>, NotFound>> UpdatePrivacyAsync(
+        UpdatePrivacyRequest request,
+        System.Security.Claims.ClaimsPrincipal principal,
+        IDatingService datingService,
+        CancellationToken cancellationToken)
+    {
+        var settings = await datingService.UpdatePrivacyAsync(CurrentUser.GetId(principal), request, cancellationToken);
+        return settings is null ? TypedResults.NotFound() : TypedResults.Ok(settings);
+    }
+
+    private static async Task<Results<Ok<PrivacySettingsResponse>, NotFound>> GetPrivacyAsync(
+        System.Security.Claims.ClaimsPrincipal principal,
+        IDatingService datingService,
+        CancellationToken cancellationToken)
+    {
+        var settings = await datingService.GetPrivacyAsync(CurrentUser.GetId(principal), cancellationToken);
+        return settings is null ? TypedResults.NotFound() : TypedResults.Ok(settings);
+    }
+
+    private static async Task<Results<NoContent, NotFound>> UpdateLocationAsync(
+        UpdateLocationRequest request,
+        System.Security.Claims.ClaimsPrincipal principal,
+        IDatingService datingService,
+        CancellationToken cancellationToken) =>
+        await datingService.UpdateLocationAsync(CurrentUser.GetId(principal), request, cancellationToken)
+            ? TypedResults.NoContent()
+            : TypedResults.NotFound();
+
+    private static async Task<Results<NoContent, NotFound>> MarkOnlineAsync(
+        System.Security.Claims.ClaimsPrincipal principal,
+        IDatingService datingService,
+        CancellationToken cancellationToken) =>
+        await datingService.MarkOnlineAsync(CurrentUser.GetId(principal), cancellationToken)
+            ? TypedResults.NoContent()
+            : TypedResults.NotFound();
 
     private static async Task<Results<Ok<UserProfileResponse>, NotFound, BadRequest<ProblemDetails>>> UpdateMyProfileAsync(
         UpdateProfileRequest request,

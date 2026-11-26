@@ -9,6 +9,7 @@ internal sealed class JourneyPost
     public string? MediaUrl { get; set; }
     public string? MediaType { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public bool IsHidden { get; set; }
     public ICollection<JourneyPostLike> Likes { get; set; } = [];
     public ICollection<JourneyComment> Comments { get; set; } = [];
 }

@@ -7,6 +7,7 @@ namespace KissAppTussing.Services;
 internal interface IEmailSender
 {
     Task SendPasswordResetLinkAsync(string email, string resetUrl, CancellationToken cancellationToken);
+    Task SendEmailVerificationCodeAsync(string email, string code, CancellationToken cancellationToken);
 }
 
 internal sealed class SmtpEmailSender(
@@ -70,6 +71,38 @@ internal sealed class SmtpEmailSender(
             client.Credentials = new NetworkCredential(username, password ?? string.Empty);
         }
 
+        await client.SendMailAsync(message, cancellationToken);
+    }
+
+    public async Task SendEmailVerificationCodeAsync(string email, string code, CancellationToken cancellationToken)
+    {
+        var host = configuration["Smtp:Host"];
+        var senderAddress = configuration["Email:FromAddress"];
+        if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(senderAddress))
+        {
+            if (environment.IsDevelopment()) logger.LogInformation("SMTP is not configured. Development-only email verification code: {Code}", code);
+            else logger.LogWarning("SMTP is not configured; email verification code was not sent.");
+            return;
+        }
+
+        using var message = new MailMessage
+        {
+            From = new MailAddress(senderAddress, configuration["Email:FromName"] ?? "Kiss", Encoding.UTF8),
+            Subject = "Mã xác minh email Kiss",
+            SubjectEncoding = Encoding.UTF8,
+            BodyEncoding = Encoding.UTF8,
+            IsBodyHtml = false,
+            Body = $"Mã xác minh email Kiss của bạn là: {code}\n\nMã có hiệu lực trong 10 phút. Nếu bạn không yêu cầu mã này, hãy bỏ qua email."
+        };
+        message.To.Add(new MailAddress(email));
+
+        var port = configuration.GetValue<int?>("Smtp:Port") ?? 587;
+        var enableSsl = configuration.GetValue("Smtp:EnableSsl", true);
+        if (!enableSsl && !environment.IsDevelopment()) return;
+        using var client = new SmtpClient(host, port) { EnableSsl = enableSsl, Timeout = 15000 };
+        var username = configuration["Smtp:Username"];
+        var password = configuration["Smtp:Password"];
+        if (!string.IsNullOrWhiteSpace(username)) client.Credentials = new NetworkCredential(username, password ?? string.Empty);
         await client.SendMailAsync(message, cancellationToken);
     }
 }

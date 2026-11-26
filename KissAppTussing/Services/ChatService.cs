@@ -11,6 +11,67 @@ internal sealed class ChatService(DatingDbContext database, IWebHostEnvironment 
     private const long MaxImageBytes = 8 * 1024 * 1024;
     private const long MaxVideoBytes = 20 * 1024 * 1024;
 
+    public async Task<IReadOnlyList<UserProfileResponse>> GetContactsAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var matchedUserIds = await database.Matches.AsNoTracking()
+            .Where(match => match.EndedAt == null && (match.FirstUserId == userId || match.SecondUserId == userId))
+            .OrderByDescending(match => match.MatchedAt)
+            .Select(match => match.FirstUserId == userId ? match.SecondUserId : match.FirstUserId)
+            .ToListAsync(cancellationToken);
+
+        var outgoingLikes = await database.Swipes.AsNoTracking()
+            .Where(swipe => swipe.FromUserId == userId && swipe.IsLike
+                && !database.Swipes.Any(reply => reply.FromUserId == swipe.ToUserId
+                    && reply.ToUserId == userId && !reply.IsLike))
+            .OrderByDescending(swipe => swipe.CreatedAt)
+            .Select(swipe => swipe.ToUserId)
+            .ToListAsync(cancellationToken);
+
+        var incomingLikes = await database.Swipes.AsNoTracking()
+            .Where(swipe => swipe.ToUserId == userId && swipe.IsLike
+                && !database.Swipes.Any(reply => reply.FromUserId == userId
+                    && reply.ToUserId == swipe.FromUserId && !reply.IsLike))
+            .OrderByDescending(swipe => swipe.CreatedAt)
+            .Select(swipe => swipe.FromUserId)
+            .ToListAsync(cancellationToken);
+
+        var acceptedFriendIds = await database.ConnectionRequests.AsNoTracking()
+            .Where(connection => connection.Status == "Accepted"
+                && (connection.FirstUserId == userId || connection.SecondUserId == userId))
+            .Select(connection => connection.FirstUserId == userId ? connection.SecondUserId : connection.FirstUserId)
+            .ToListAsync(cancellationToken);
+
+        var endedMatchUserIds = await database.Matches.AsNoTracking()
+            .Where(match => match.EndedAt != null && (match.FirstUserId == userId || match.SecondUserId == userId))
+            .Select(match => match.FirstUserId == userId ? match.SecondUserId : match.FirstUserId)
+            .ToHashSetAsync(cancellationToken);
+        var blockedUserIds = await database.UserBlocks.AsNoTracking()
+            .Where(block => block.BlockerUserId == userId || block.BlockedUserId == userId)
+            .Select(block => block.BlockerUserId == userId ? block.BlockedUserId : block.BlockerUserId)
+            .ToHashSetAsync(cancellationToken);
+        var contactIds = matchedUserIds.Concat(outgoingLikes).Concat(incomingLikes)
+            .Where(contactId => !endedMatchUserIds.Contains(contactId))
+            .Concat(acceptedFriendIds)
+            .Where(contactId => !blockedUserIds.Contains(contactId))
+            .Distinct().ToArray();
+        if (contactIds.Length == 0) return [];
+
+        var profiles = await database.Users.AsNoTracking()
+            .Where(user => contactIds.Contains(user.Id))
+            .Include(user => user.Photos)
+            .Include(user => user.Interests)
+                .ThenInclude(userInterest => userInterest.Interest)
+            .AsSplitQuery()
+            .ToDictionaryAsync(user => user.Id, cancellationToken);
+
+        return contactIds
+            .Where(contactId => profiles.ContainsKey(contactId))
+            .Select(contactId => ToProfile(profiles[contactId]))
+            .ToArray();
+    }
+
     public async Task<ChatMessagesResult> GetMessagesAsync(
         Guid userId,
         Guid otherUserId,
@@ -21,12 +82,18 @@ internal sealed class ChatService(DatingDbContext database, IWebHostEnvironment 
             return new ChatMessagesResult(ChatOperationStatus.NotMatched, []);
         }
 
+        var readAt = DateTimeOffset.UtcNow;
+        await database.ChatMessages
+            .Where(message => message.SenderId == otherUserId && message.RecipientId == userId && message.ReadAt == null)
+            .ExecuteUpdateAsync(update => update.SetProperty(message => message.ReadAt, readAt), cancellationToken);
+
         var messages = await database.ChatMessages
             .AsNoTracking()
             .Include(message => message.Sender)
             .Where(message =>
                 (message.SenderId == userId && message.RecipientId == otherUserId)
                 || (message.SenderId == otherUserId && message.RecipientId == userId))
+            .Where(message => !database.HiddenChatMessages.Any(hidden => hidden.MessageId == message.Id && hidden.UserId == userId))
             .OrderByDescending(message => message.SentAt)
             .ThenByDescending(message => message.Id)
             .Take(100)
@@ -117,6 +184,7 @@ internal sealed class ChatService(DatingDbContext database, IWebHostEnvironment 
         try
         {
             database.ChatMessages.Add(message);
+            await NotificationWriter.AddAsync(database, otherUserId, "Chat", "Tin nhắn mới", "Bạn có tin nhắn mới.", message.Id, cancellationToken);
             await database.SaveChangesAsync(cancellationToken);
             await database.Entry(message).Reference(item => item.Sender).LoadAsync(cancellationToken);
             return new ChatMessageResult(ChatOperationStatus.Success, ToResponse(message, userId));
@@ -138,7 +206,7 @@ internal sealed class ChatService(DatingDbContext database, IWebHostEnvironment 
             .SingleOrDefaultAsync(item => item.Id == messageId
                 && (item.SenderId == userId || item.RecipientId == userId), cancellationToken);
 
-        if (message?.MediaFileName is null || message.MediaType is null)
+        if (message?.MediaFileName is null || message.MediaType is null || message.RevokedAt is not null || message.IsModerated)
         {
             return new ChatMediaResult(ChatOperationStatus.MediaNotFound);
         }
@@ -152,6 +220,41 @@ internal sealed class ChatService(DatingDbContext database, IWebHostEnvironment 
         return new ChatMediaResult(ChatOperationStatus.Success, File.OpenRead(path), message.MediaType);
     }
 
+    public async Task<bool> HideMessageAsync(Guid userId, Guid messageId, CancellationToken cancellationToken)
+    {
+        var message = await database.ChatMessages.AsNoTracking().SingleOrDefaultAsync(candidate =>
+            candidate.Id == messageId && (candidate.SenderId == userId || candidate.RecipientId == userId), cancellationToken);
+        if (message is null) return false;
+        var alreadyHidden = await database.HiddenChatMessages.AnyAsync(
+            item => item.MessageId == messageId && item.UserId == userId, cancellationToken);
+        if (!alreadyHidden)
+        {
+            database.HiddenChatMessages.Add(new HiddenChatMessage { MessageId = messageId, UserId = userId });
+            await database.SaveChangesAsync(cancellationToken);
+        }
+        return true;
+    }
+
+    public async Task<bool> RecallMessageAsync(Guid userId, Guid messageId, CancellationToken cancellationToken)
+    {
+        var message = await database.ChatMessages.SingleOrDefaultAsync(
+            candidate => candidate.Id == messageId && candidate.SenderId == userId && candidate.RevokedAt == null,
+            cancellationToken);
+        if (message is null || message.SentAt < DateTimeOffset.UtcNow.AddMinutes(-15)) return false;
+
+        if (message.MediaFileName is not null)
+        {
+            var path = Path.Combine(GetMessageDirectory(), Path.GetFileName(message.MediaFileName));
+            if (File.Exists(path)) File.Delete(path);
+        }
+        message.Content = null;
+        message.MediaFileName = null;
+        message.MediaType = null;
+        message.RevokedAt = DateTimeOffset.UtcNow;
+        await database.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     private async Task<bool> CanChatAsync(Guid userId, Guid otherUserId, CancellationToken cancellationToken)
     {
         if (userId == otherUserId)
@@ -159,10 +262,67 @@ internal sealed class ChatService(DatingDbContext database, IWebHostEnvironment 
             return false;
         }
 
-        return await database.Matches.AnyAsync(match =>
-            (match.FirstUserId == userId && match.SecondUserId == otherUserId)
-            || (match.FirstUserId == otherUserId && match.SecondUserId == userId), cancellationToken);
+        if (await database.UserBlocks.AnyAsync(block =>
+            (block.BlockerUserId == userId && block.BlockedUserId == otherUserId)
+            || (block.BlockerUserId == otherUserId && block.BlockedUserId == userId), cancellationToken))
+        {
+            return false;
+        }
+
+        if (await database.ConnectionRequests.AnyAsync(connection => connection.Status == "Accepted"
+            && ((connection.FirstUserId == userId && connection.SecondUserId == otherUserId)
+                || (connection.FirstUserId == otherUserId && connection.SecondUserId == userId)), cancellationToken))
+        {
+            return true;
+        }
+
+        if (await database.Matches.AnyAsync(match => match.EndedAt != null
+            && ((match.FirstUserId == userId && match.SecondUserId == otherUserId)
+                || (match.FirstUserId == otherUserId && match.SecondUserId == userId)), cancellationToken))
+        {
+            return false;
+        }
+
+        if (await database.Matches.AnyAsync(match =>
+            match.EndedAt == null && ((match.FirstUserId == userId && match.SecondUserId == otherUserId)
+            || (match.FirstUserId == otherUserId && match.SecondUserId == userId)), cancellationToken))
+        {
+            return true;
+        }
+
+        var pendingOutgoingLike = await database.Swipes.AnyAsync(swipe =>
+            swipe.FromUserId == userId && swipe.ToUserId == otherUserId && swipe.IsLike
+            && !database.Swipes.Any(reply => reply.FromUserId == otherUserId
+                && reply.ToUserId == userId && !reply.IsLike), cancellationToken);
+        if (pendingOutgoingLike) return true;
+
+        return await database.Swipes.AnyAsync(swipe =>
+            swipe.FromUserId == otherUserId && swipe.ToUserId == userId && swipe.IsLike
+            && !database.Swipes.Any(reply => reply.FromUserId == userId
+                && reply.ToUserId == otherUserId && !reply.IsLike), cancellationToken);
     }
+
+    private static UserProfileResponse ToProfile(User user) => new(
+        user.Id,
+        user.Name,
+        user.HideAge ? null : user.BirthDate,
+        user.Bio,
+        user.Gender,
+        user.HideCity ? null : user.City,
+        user.HideOccupation ? null : user.Occupation,
+        user.HideEducation ? null : user.Education,
+        user.LookingFor,
+        user.Photos.Select(photo => new ProfilePhotoResponse(
+            photo.Id, photo.Url, photo.IsAvatar, photo.SortOrder))
+            .OrderByDescending(photo => photo.IsAvatar)
+            .ThenBy(photo => photo.SortOrder)
+            .ToArray(),
+        user.Interests.Select(userInterest => new InterestResponse(
+            userInterest.InterestId, userInterest.Interest.Name))
+            .OrderBy(interest => interest.Name)
+            .ToArray(),
+        user.CreatedAt,
+        IsOnline: user.LastSeenAt >= DateTimeOffset.UtcNow.AddMinutes(-5));
 
     private string GetMessageDirectory() =>
         Path.Combine(environment.ContentRootPath, "App_Data", "chat");
@@ -171,11 +331,14 @@ internal sealed class ChatService(DatingDbContext database, IWebHostEnvironment 
         message.Id,
         message.SenderId,
         message.Sender.Name,
-        message.Content,
-        message.MediaFileName is null ? null : $"/api/chat/media/{message.Id}",
+        message.IsModerated ? "Tin nhắn đã bị ẩn do vi phạm quy định." : message.RevokedAt is not null ? "Tin nhắn đã được thu hồi." : message.Content,
+        message.IsModerated || message.RevokedAt is not null || message.MediaFileName is null ? null : $"/api/chat/media/{message.Id}",
         message.MediaType,
         message.SentAt,
-        message.SenderId == currentUserId);
+        message.SenderId == currentUserId,
+        message.SenderId == currentUserId || message.ReadAt is not null,
+        message.RevokedAt is not null || message.IsModerated,
+        message.SenderId == currentUserId && message.RevokedAt is null && !message.IsModerated && message.SentAt >= DateTimeOffset.UtcNow.AddMinutes(-15));
 
     private static async Task<(string Extension, string MediaType)?> DetectMediaAsync(
         IFormFile media,

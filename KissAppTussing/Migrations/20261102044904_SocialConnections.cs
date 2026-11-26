@@ -30,19 +30,31 @@ namespace KissAppTussing.Migrations
                         column: x => x.FirstUserId,
                         principalTable: "Users",
                         principalColumn: "Id",
+<<<<<<< HEAD
                         onDelete: ReferentialAction.Restrict);
+=======
+                        onDelete: ReferentialAction.NoAction);
+>>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
                     table.ForeignKey(
                         name: "FK_ConnectionRequests_Users_RequestedByUserId",
                         column: x => x.RequestedByUserId,
                         principalTable: "Users",
                         principalColumn: "Id",
+<<<<<<< HEAD
                         onDelete: ReferentialAction.Restrict);
+=======
+                        onDelete: ReferentialAction.NoAction);
+>>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
                     table.ForeignKey(
                         name: "FK_ConnectionRequests_Users_SecondUserId",
                         column: x => x.SecondUserId,
                         principalTable: "Users",
                         principalColumn: "Id",
+<<<<<<< HEAD
                         onDelete: ReferentialAction.Restrict);
+=======
+                        onDelete: ReferentialAction.NoAction);
+>>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
                 });
 
             migrationBuilder.CreateTable(
@@ -64,13 +76,21 @@ namespace KissAppTussing.Migrations
                         column: x => x.FirstUserId,
                         principalTable: "Users",
                         principalColumn: "Id",
+<<<<<<< HEAD
                         onDelete: ReferentialAction.Restrict);
+=======
+                        onDelete: ReferentialAction.NoAction);
+>>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
                     table.ForeignKey(
                         name: "FK_Conversations_Users_SecondUserId",
                         column: x => x.SecondUserId,
                         principalTable: "Users",
                         principalColumn: "Id",
+<<<<<<< HEAD
                         onDelete: ReferentialAction.Restrict);
+=======
+                        onDelete: ReferentialAction.NoAction);
+>>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
                 });
 
             migrationBuilder.CreateTable(
@@ -97,7 +117,7 @@ namespace KissAppTussing.Migrations
                         column: x => x.SenderId,
                         principalTable: "Users",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateIndex(

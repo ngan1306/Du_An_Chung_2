@@ -9,21 +9,27 @@ internal sealed class SocialService(DatingDbContext db)
 {
     public async Task<IReadOnlyList<SocialUserResponse>> SearchAsync(Guid me, string? query, CancellationToken ct)
     {
-        var users = db.Users.AsNoTracking().Where(user => user.Id != me);
+        var users = db.Users.AsNoTracking().Where(user => user.Id != me && !user.IsSuspended && !user.IsIncognito)
+            .Where(user => !db.UserBlocks.Any(block =>
+                (block.BlockerUserId == me && block.BlockedUserId == user.Id)
+                || (block.BlockerUserId == user.Id && block.BlockedUserId == me)));
         if (!string.IsNullOrWhiteSpace(query))
         {
             var term = query.Trim();
             users = users.Where(user => user.Name.Contains(term) || user.Bio.Contains(term) || (user.City != null && user.City.Contains(term)));
         }
         return await users.OrderBy(user => user.Name).Take(30)
-            .Select(user => new SocialUserResponse(user.Id, user.Name, user.Bio, user.City,
+            .Select(user => new SocialUserResponse(user.Id, user.Name, user.Bio, user.HideCity ? null : user.City,
                 db.ProfilePhotos.Where(photo => photo.UserId == user.Id).OrderByDescending(photo => photo.IsAvatar).ThenBy(photo => photo.SortOrder).Select(photo => photo.Url).FirstOrDefault()))
             .ToListAsync(ct);
     }
 
     public async Task<IReadOnlyList<ConnectionResponse>> ConnectionsAsync(Guid me, string? status, CancellationToken ct)
     {
-        var query = db.ConnectionRequests.AsNoTracking().Where(row => row.FirstUserId == me || row.SecondUserId == me);
+        var query = db.ConnectionRequests.AsNoTracking().Where(row => row.FirstUserId == me || row.SecondUserId == me)
+            .Where(row => !db.UserBlocks.Any(block =>
+                (block.BlockerUserId == me && block.BlockedUserId == (row.FirstUserId == me ? row.SecondUserId : row.FirstUserId))
+                || (block.BlockerUserId == (row.FirstUserId == me ? row.SecondUserId : row.FirstUserId) && block.BlockedUserId == me)));
         if (status is not null) query = query.Where(row => row.Status == status);
         var rows = await query.OrderByDescending(row => row.CreatedAt).Take(200).ToListAsync(ct);
         var ids = rows.Select(row => row.FirstUserId == me ? row.SecondUserId : row.FirstUserId).Distinct().ToArray();
@@ -35,7 +41,8 @@ internal sealed class SocialService(DatingDbContext db)
     public async Task<string> RequestAsync(Guid me, Guid other, CancellationToken ct)
     {
         if (me == other) return "Self";
-        if (!await db.Users.AnyAsync(user => user.Id == other, ct)) return "Missing";
+        if (!await db.Users.AnyAsync(user => user.Id == other && !user.IsSuspended, ct)
+            || await IsBlockedAsync(me, other, ct)) return "Missing";
         var (first, second) = Pair(me, other);
         var row = await db.ConnectionRequests.SingleOrDefaultAsync(item => item.FirstUserId == first && item.SecondUserId == second, ct);
         if (row is { Status: "Accepted" }) return "Accepted";
@@ -59,6 +66,8 @@ internal sealed class SocialService(DatingDbContext db)
         var row = await db.ConnectionRequests.SingleOrDefaultAsync(item => item.Id == id, ct);
         if (row is null) return "Missing";
         if (row.Status != "Pending" || row.RequestedByUserId == me || (row.FirstUserId != me && row.SecondUserId != me)) return "Forbidden";
+        var otherUserId = row.FirstUserId == me ? row.SecondUserId : row.FirstUserId;
+        if (await IsBlockedAsync(me, otherUserId, ct)) return "Forbidden";
         if (!accept)
         {
             row.Status = "Declined";
@@ -96,6 +105,9 @@ internal sealed class SocialService(DatingDbContext db)
     {
         var pairs = await db.ConnectionRequests.AsNoTracking()
             .Where(row => row.Status == "Accepted" && (row.FirstUserId == me || row.SecondUserId == me))
+            .Where(row => !db.UserBlocks.Any(block =>
+                (block.BlockerUserId == me && block.BlockedUserId == (row.FirstUserId == me ? row.SecondUserId : row.FirstUserId))
+                || (block.BlockerUserId == (row.FirstUserId == me ? row.SecondUserId : row.FirstUserId) && block.BlockedUserId == me)))
             .Select(row => new { row.FirstUserId, row.SecondUserId }).ToListAsync(ct);
         foreach (var pair in pairs) await GetOrCreateConversationAsync(pair.FirstUserId, pair.SecondUserId, ct);
         var conversations = await db.Conversations.AsNoTracking()
@@ -145,6 +157,7 @@ internal sealed class SocialService(DatingDbContext db)
     {
         var item = await db.Conversations.SingleOrDefaultAsync(conversation => conversation.Id == id && (conversation.FirstUserId == me || conversation.SecondUserId == me), ct);
         if (item is null) return null;
+        if (await IsBlockedAsync(me, item.FirstUserId == me ? item.SecondUserId : item.FirstUserId, ct)) return null;
         var accepted = await db.ConnectionRequests.AnyAsync(row => row.Status == "Accepted" && row.FirstUserId == item.FirstUserId && row.SecondUserId == item.SecondUserId, ct);
         return accepted ? item : null;
     }
@@ -161,9 +174,13 @@ internal sealed class SocialService(DatingDbContext db)
         return item;
     }
 
+    private Task<bool> IsBlockedAsync(Guid left, Guid right, CancellationToken ct) => db.UserBlocks.AnyAsync(block =>
+        (block.BlockerUserId == left && block.BlockedUserId == right)
+        || (block.BlockerUserId == right && block.BlockedUserId == left), ct);
+
     private async Task<Dictionary<Guid, SocialUserResponse>> UserCards(Guid[] ids, CancellationToken ct) =>
         await db.Users.AsNoTracking().Where(user => ids.Contains(user.Id)).ToDictionaryAsync(user => user.Id,
-            user => new SocialUserResponse(user.Id, user.Name, user.Bio, user.City,
+            user => new SocialUserResponse(user.Id, user.Name, user.Bio, user.HideCity ? null : user.City,
                 db.ProfilePhotos.Where(photo => photo.UserId == user.Id).OrderByDescending(photo => photo.IsAvatar).ThenBy(photo => photo.SortOrder).Select(photo => photo.Url).FirstOrDefault()), ct);
 
     private static (Guid First, Guid Second) Pair(Guid left, Guid right) => left.CompareTo(right) < 0 ? (left, right) : (right, left);
