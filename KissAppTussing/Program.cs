@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using KissAppTussing.Data;
 using KissAppTussing.Endpoints;
+using KissAppTussing.Hubs;
 using KissAppTussing.Models;
 using KissAppTussing.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -27,6 +28,7 @@ if (string.IsNullOrWhiteSpace(jwtIssuer) || string.IsNullOrWhiteSpace(jwtAudienc
 builder.Services.AddOpenApi();
 builder.Services.AddValidation();
 builder.Services.AddProblemDetails();
+builder.Services.AddSignalR();
 builder.Services.AddDbContext<DatingDbContext>(options =>
 	options.UseSqlServer(builder.Configuration.GetConnectionString("DatingApp")));
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
@@ -46,6 +48,18 @@ builder.Services
 	.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 	.AddJwtBearer(options =>
 	{
+		options.Events = new JwtBearerEvents
+		{
+			OnMessageReceived = context =>
+			{
+				var accessToken = context.Request.Query["access_token"];
+				if (!string.IsNullOrEmpty(accessToken) && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+				{
+					context.Token = accessToken;
+				}
+				return Task.CompletedTask;
+			}
+		};
 		options.TokenValidationParameters = new TokenValidationParameters
 		{
 			ValidateIssuer = true,
@@ -91,6 +105,7 @@ app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapHub<RoomHub>("/hubs/rooms");
 
 if (app.Environment.IsDevelopment())
 {
@@ -105,6 +120,7 @@ app.MapSwipeEndpoints();
 app.MapMatchEndpoints();
 app.MapJourneyEndpoints();
 app.MapChatEndpoints();
+app.MapRoomEndpoints();
 app.MapAdminEndpoints();
 app.MapSocialEndpoints();
 

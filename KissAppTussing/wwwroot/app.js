@@ -6,7 +6,8 @@ const resetPasswordForm = document.querySelector("#reset-password-form");
 const appView = document.querySelector("#dating-app");
 const authMessage = document.querySelector("#auth-message");
 const authButton = document.querySelector("#auth-submit");
-const appState = { token: localStorage.getItem("kiss.accessToken"), profile: null, interests: [], resetToken: null, connections: [], conversations: [], selectedConversationId: null, chatPoll: null };
+const appState = { token: localStorage.getItem("kiss.accessToken"), profile: null, interests: [], resetToken: null, connections: [], conversations: [], selectedConversationId: null, chatPoll: null, viewedProfile: null, rooms: [] };
+const roomState = { connection: null, activeRoomId: null };
 const chatState = {
   contacts: [],
   activeUserId: null,
@@ -19,7 +20,7 @@ const chatState = {
 };
 let authMode = "login";
 
-const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, (character) => ({
+const escapeHtml = (value = "") => String(value).normalize("NFC").replace(/[&<>"']/g, (character) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 }[character]));
 
@@ -27,8 +28,21 @@ function photoUrl(value) {
   return typeof value === "string" && (value.startsWith("/uploads/") || value.startsWith("/demo-profiles/")) ? value : "";
 }
 
+function emptyState(title, description, actionLabel = "Khám phá hồ sơ ngay", actionPage = "discover") {
+  return `<div class="empty-state"><div class="empty-state-art" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><path d="M24 39S7 29.5 7 17.8C7 12.4 11 9 15.7 9c3.4 0 6.4 2 8.3 5 1.9-3 4.9-5 8.3-5C37 9 41 12.4 41 17.8 41 29.5 24 39 24 39Z" fill="currentColor" opacity=".15"/><path d="M24 36S9 27.8 9 17.9C9 13.2 12.2 10 16.3 10c3.4 0 6.1 2.1 7.7 5.2C25.6 12.1 28.3 10 31.7 10 35.8 10 39 13.2 39 17.9 39 27.8 24 36 24 36Z" stroke="currentColor" stroke-width="2"/></svg></div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(description)}</p><button class="empty-state-action" type="button" data-empty-page="${escapeHtml(actionPage)}">${escapeHtml(actionLabel)}</button></div>`;
+}
+
 function cleanProfileName(value = "") {
-  return String(value).replace(/^\[M\u1eabu\]\s*/u, "");
+  return String(value).normalize("NFC").replace(/^\[Mẫu\]\s*/u, "");
+}
+
+function lookingForLabel(value) {
+  switch (value) {
+    case "Friendship": return "Kết bạn";
+    case "Dating": return "Hẹn hò";
+    case "Relationship": return "Mối quan hệ nghiêm túc";
+    default: return "Chưa cập nhật";
+  }
 }
 
 function ageFrom(value) {
@@ -81,7 +95,11 @@ async function request(path, options = {}) {
   if (response.status === 204) return null;
   const contentType = response.headers.get("content-type") || "";
   const result = contentType.includes("json") ? await response.json() : await response.text();
-  if (!response.ok) throw new Error(result?.detail || result?.title || "Không thể hoàn tất yêu cầu.");
+  if (!response.ok) {
+    const error = new Error(result?.detail || result?.title || "Không thể hoàn tất yêu cầu.");
+    error.status = response.status;
+    throw error;
+  }
   return result;
 }
 
@@ -203,14 +221,16 @@ async function enterWorkspace() {
   appView.hidden = false;
   document.title = "Kiss | Khám phá";
   document.querySelector("#app-user-name").textContent = appState.profile.name;
+  document.querySelector("#app-user-avatar").textContent = cleanProfileName(appState.profile.name).trim().charAt(0).toUpperCase() || "K";
   await loadInterests();
   fillProfile();
-  await Promise.all([loadDiscover(), loadMatches(), loadJourney(), loadAdminOverview()]);
+  await Promise.all([loadDiscover(), loadMatches(), loadJourney(), loadAdminOverview(), loadRooms()]);
   showPage("discover");
 }
 
 function showPage(page) {
-  for (const id of ["discover", "journey", "profile", "matches", "chat", "connections", "messages", "admin"]) {
+  page = page === "messages" ? "chat" : page;
+  for (const id of ["discover", "view-profile", "journey", "profile", "matches", "chat", "rooms", "connections", "messages", "admin"]) {
     document.getElementById(`${id}-page`).hidden = id !== page;
   }
   document.querySelectorAll("[data-page]").forEach((button) => {
@@ -223,9 +243,60 @@ function showPage(page) {
   if (page === "connections") loadConnections();
   if (page === "chat") loadChatContacts();
   else stopChatPolling();
+  if (page === "rooms") loadRooms();
   if (page === "messages") startSocialPolling();
   else stopSocialPolling();
   if (page === "admin") loadAdminOverview();
+}
+
+async function loadRooms() {
+  const form = document.querySelector("#rooms-filter-form");
+  const results = document.querySelector("#rooms-results");
+  const loading = document.querySelector("#rooms-loading");
+  const message = document.querySelector("#rooms-message");
+  if (!results) return;
+  loading.hidden = false;
+  message.hidden = true;
+  try {
+    const params = new URLSearchParams();
+    if (form.elements.search.value.trim()) params.set("search", form.elements.search.value.trim());
+    if (form.elements.topic.value.trim()) params.set("topic", form.elements.topic.value.trim());
+    appState.rooms = await request(`/rooms?${params}`);
+    results.innerHTML = appState.rooms.length ? appState.rooms.map(renderRoomCard).join("") : emptyState("Chưa có phòng nào", "Hãy tạo một không gian thật chill cho mọi người.", "Tạo phòng đầu tiên", "rooms");
+  } catch (error) {
+    message.textContent = error.message;
+    message.hidden = false;
+  } finally { loading.hidden = true; }
+}
+
+function renderRoomCard(room) {
+  const image = photoUrl(room.avatarUrl);
+  return `<article class="room-card"><div class="room-card-avatar">${image ? `<img src="${escapeHtml(image)}" alt="">` : "💬"}</div><div class="room-card-content"><div class="room-card-title"><h2>${escapeHtml(room.name)}</h2>${room.isPrivate ? "<span class=room-private>Riêng tư</span>" : ""}</div><p class="room-topic">${escapeHtml(room.topic || "Cùng trò chuyện")}</p><p>${escapeHtml(room.description || "Một góc nhỏ để gặp gỡ những người cùng vibe.")}</p><div class="room-card-footer"><span>👥 ${room.memberCount}/${room.maxMembers}</span><button class="submit-button room-join-button" type="button" data-room-join="${room.id}">Vào phòng</button></div></div></article>`;
+}
+
+async function joinRoom(roomId) {
+  try { await request(`/rooms/${roomId}/join`, { method: "POST", body: JSON.stringify({}) }); showPage("rooms"); }
+  catch (error) { const message = document.querySelector("#rooms-message"); message.textContent = error.message; message.hidden = false; }
+}
+
+function toggleRoomInvite() {
+  const checkbox = document.querySelector("#create-room-form [name=isPrivate]");
+  document.querySelector("#room-invite-field").hidden = !checkbox.checked;
+  document.querySelector("#create-room-form [name=inviteCode]").required = checkbox.checked;
+}
+
+async function submitCreateRoom(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const message = document.querySelector("#create-room-message");
+  try {
+    const data = Object.fromEntries(new FormData(form).entries());
+    data.isPrivate = form.elements.isPrivate.checked;
+    data.maxMembers = Number(data.maxMembers || 50);
+    await request("/rooms", { method: "POST", body: JSON.stringify(data) });
+    document.querySelector("#create-room-dialog").close();
+    form.reset(); toggleRoomInvite(); loadRooms();
+  } catch (error) { message.textContent = error.message; message.hidden = false; }
 }
 
 async function loadAdminOverview() {
@@ -291,9 +362,9 @@ async function loadConnections(searchTerm) {
     const outgoing = connections.filter((item) => item.status === "Pending" && item.requestedByMe);
     const friends = connections.filter((item) => item.status === "Accepted");
     document.querySelector("#connection-count").textContent = friends.length;
-    document.querySelector("#incoming-requests").innerHTML = incoming.length ? incoming.map((item) => socialCard(item.user, `<div><button class="social-action primary" data-connection-accept="${item.id}" type="button">Chấp nhận</button> <button class="social-action danger" data-connection-decline="${item.id}" type="button">Từ chối</button></div>`)).join("") : '<p class="empty-message">Bạn chưa có lời mời kết nối nào.</p>';
-    document.querySelector("#outgoing-requests").innerHTML = outgoing.length ? outgoing.map((item) => socialCard(item.user, `<button class="social-action" data-connection-cancel="${item.id}" type="button">Đã gửi · Hủy</button>`)).join("") : '<p class="empty-message">Bạn chưa gửi lời mời nào.</p>';
-    document.querySelector("#friends-list").innerHTML = friends.length ? friends.map((item) => socialCard(item.user, `<button class="social-action danger" data-connection-disconnect="${item.id}" type="button">Hủy kết nối</button>`)).join("") : '<p class="empty-message">Bạn chưa có bạn bè. Hãy tìm người để kết nối.</p>';
+    document.querySelector("#incoming-requests").innerHTML = incoming.length ? incoming.map((item) => socialCard(item.user, `<div><button class="social-action primary" data-connection-accept="${item.id}" type="button">Chấp nhận</button> <button class="social-action danger" data-connection-decline="${item.id}" type="button">Từ chối</button></div>`)).join("") : emptyState("Chưa có lời mời", "Khi có người muốn kết nối, lời mời sẽ xuất hiện ở đây.");
+    document.querySelector("#outgoing-requests").innerHTML = outgoing.length ? outgoing.map((item) => socialCard(item.user, `<button class="social-action" data-connection-cancel="${item.id}" type="button">Đã gửi · Hủy</button>`)).join("") : emptyState("Chưa gửi lời mời", "Khám phá thêm hồ sơ để tìm người có cùng sở thích.");
+    document.querySelector("#friends-list").innerHTML = friends.length ? friends.map((item) => socialCard(item.user, `<button class="social-action danger" data-connection-disconnect="${item.id}" type="button">Hủy kết nối</button>`)).join("") : emptyState("Chưa có kết nối nào", "Khám phá những người cùng nhịp và bắt đầu một lời chào.");
     if (users) {
       const statusByUser = new Map(connections.map((item) => [item.user.id, item]));
       const results = users.filter((user) => !connections.some((item) => item.user.id === user.id && ["Accepted", "Pending"].includes(item.status)));
@@ -340,7 +411,7 @@ async function loadConversations() {
     if (appState.selectedConversationId) await loadSocialMessages();
     else {
       document.querySelector("#social-chat-heading").innerHTML = '<div class="chat-empty">Chọn một người bạn để bắt đầu trò chuyện.</div>';
-      document.querySelector("#social-chat-messages").innerHTML = '<p class="chat-empty">Tin nhắn của bạn sẽ xuất hiện ở đây.</p>';
+      document.querySelector("#social-chat-messages").innerHTML = emptyState("Chưa có cuộc trò chuyện", "Chọn một người bạn để bắt đầu nhắn tin.");
       document.querySelector("#social-chat-form").hidden = true;
     }
   } catch (error) { notify(document.querySelector("#social-chat-message"), error.message); }
@@ -354,7 +425,7 @@ async function loadSocialMessages() {
   try {
     const messages = await request(`/conversations/${selected.id}/messages?limit=50`);
     const container = document.querySelector("#social-chat-messages");
-    container.innerHTML = messages.length ? messages.map((item) => `<article class="message-bubble ${item.senderId === appState.profile.id ? "is-mine" : ""}">${escapeHtml(item.content)}<time>${new Date(item.sentAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}${item.senderId === appState.profile.id ? (item.isRead ? " · Đã đọc" : " · Đã gửi") : ""}</time></article>`).join("") : '<p class="chat-empty">Chưa có tin nhắn. Hãy gửi lời chào đầu tiên!</p>';
+    container.innerHTML = messages.length ? messages.map((item) => `<article class="message-bubble ${item.senderId === appState.profile.id ? "is-mine" : ""}">${escapeHtml(item.content)}<time>${new Date(item.sentAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}${item.senderId === appState.profile.id ? (item.isRead ? " · Đã đọc" : " · Đã gửi") : ""}</time></article>`).join("") : emptyState("Bắt đầu bằng một lời chào", "Một tin nhắn ngắn có thể mở đầu cho câu chuyện thú vị.", "Viết lời chào");
     container.scrollTop = container.scrollHeight;
     const current = appState.conversations.find((item) => item.id === selected.id);
     if (current) current.unreadCount = 0;
@@ -415,7 +486,7 @@ async function loadDiscover() {
   const results = document.querySelector("#discover-results");
   const message = document.querySelector("#discover-message");
   message.hidden = true;
-  results.innerHTML = '<p class="empty-message">Đang tìm hồ sơ phù hợp...</p>';
+  results.innerHTML = Array.from({ length: 6 }, () => '<article class="skeleton-card" aria-hidden="true"><div class="skeleton-photo"></div><div class="skeleton-copy"></div><div class="skeleton-copy short"></div></article>').join("");
   try {
     const profiles = await request(`/profiles/discover?${params.toString()}`);
     renderProfiles(results, profiles, true);
@@ -427,21 +498,111 @@ async function loadDiscover() {
 
 function renderProfiles(container, profiles, allowSwipe, allowChat = false) {
   if (!profiles.length) {
-    container.innerHTML = '<p class="empty-message">Chưa tìm thấy hồ sơ phù hợp. Hãy thử điều chỉnh bộ lọc hoặc quay lại sau.</p>';
+    container.innerHTML = emptyState("Chưa tìm thấy hồ sơ phù hợp", "Hãy thử điều chỉnh bộ lọc hoặc quay lại sau.", "Điều chỉnh bộ lọc", "discover");
     return;
   }
   container.innerHTML = profiles.map((profile) => {
     const name = cleanProfileName(profile.name);
     const avatar = profile.photos?.find((photo) => photo.isAvatar) || profile.photos?.[0];
     const image = photoUrl(avatar?.url);
-    return `<article class="person-card" data-profile-id="${profile.id}">
-      ${image ? `<img class="person-photo" src="${escapeHtml(image)}" alt="Ảnh hồ sơ ${escapeHtml(name)}">` : `<div class="person-photo person-photo-placeholder" aria-hidden="true">${escapeHtml(name.trim().charAt(0).toUpperCase())}</div>`}
-      <div class="person-card-body"><div class="person-card-heading"><h2>${escapeHtml(name)}</h2><span>${ageFrom(profile.birthDate)}</span></div>
-      <div class="person-meta">${profile.city ? `<span>${escapeHtml(profile.city)}</span>` : ""}<span>${escapeHtml(profile.lookingFor || "Dating")}</span></div>
-      <p class="person-bio">${escapeHtml(profile.bio || "Chưa có phần giới thiệu.")}</p>
-      <div class="person-interests">${(profile.interests || []).map((interest) => `<span class="interest-chip">${escapeHtml(interest.name)}</span>`).join("")}</div>
-      ${allowSwipe ? `<div class="person-card-actions"><button type="button" data-swipe="false">Bỏ qua</button><button type="button" data-swipe="true">Thích ♡</button></div>` : allowChat ? `<div class="person-card-actions person-card-chat-actions"><button class="person-card-chat-button" type="button" data-open-chat="${profile.id}" aria-label="Nhắn tin với ${escapeHtml(name)}"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M3 4.75A2.75 2.75 0 0 1 5.75 2h8.5A2.75 2.75 0 0 1 17 4.75v5.5A2.75 2.75 0 0 1 14.25 13H9l-4.5 3v-3.2A2.75 2.75 0 0 1 3 10.25z"/></svg>Nhắn tin</button></div>` : ""}</div></article>`;
+    const city = profile.city ? `<span class="person-card-city">${escapeHtml(profile.city)}</span>` : "";
+    return `<article class="person-card" data-profile-id="${profile.id}" tabindex="0">
+      ${image ? `<img class="person-photo" data-view-profile="${profile.id}" src="${escapeHtml(image)}" alt="Xem hồ sơ ${escapeHtml(name)}">` : `<div class="person-photo person-photo-placeholder" data-view-profile="${profile.id}" aria-hidden="true">${escapeHtml(name.trim().charAt(0).toUpperCase())}</div>`}
+      <div class="person-card-overlay"><div class="person-card-heading"><h2 data-view-profile="${profile.id}">${escapeHtml(name)}</h2><span>${ageFrom(profile.birthDate)}</span></div><div class="person-card-city-row">${city}</div></div>
+      <div class="person-card-body"><div class="person-meta"><span>${escapeHtml(lookingForLabel(profile.lookingFor))}</span></div><p class="person-bio">${escapeHtml(profile.bio || "Chưa có phần giới thiệu.")}</p><div class="person-interests">${(profile.interests || []).map((interest) => `<span class="interest-chip">${escapeHtml(interest.name)}</span>`).join("")}</div>
+      ${allowSwipe ? `<div class="person-card-actions"><button class="card-round-action pass" type="button" data-swipe="false" aria-label="Bỏ qua">Bỏ qua</button><button class="card-round-action like" type="button" data-swipe="true" aria-label="Kết đôi">Kết đôi ♥</button><button class="card-round-action info" type="button" data-view-profile="${profile.id}" aria-label="Xem hồ sơ">Xem hồ sơ</button></div>` : allowChat ? `<div class="person-card-actions person-card-chat-actions"><button class="person-card-chat-button" type="button" data-open-chat="${profile.id}" aria-label="Nhắn tin với ${escapeHtml(name)}"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M3 4.75A2.75 2.75 0 0 1 5.75 2h8.5A2.75 2.75 0 0 1 17 4.75v5.5A2.75 2.75 0 0 1 14.25 13H9l-4.5 3v-3.2A2.75 2.75 0 0 1 3 10.25z"/></svg>Nhắn tin</button></div>` : ""}</div></article>`;
   }).join("");
+}
+
+function viewProfileGallery(profile) {
+  const photos = (profile.photos || []).slice().sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0));
+  if (!photos.length) return `<div class="view-profile-photo view-profile-photo-placeholder" aria-hidden="true">${escapeHtml(cleanProfileName(profile.name).trim().charAt(0).toUpperCase())}</div>`;
+  return `<div class="view-profile-gallery">${photos.map((photo) => `<img class="view-profile-photo" src="${escapeHtml(photoUrl(photo.url))}" alt="Ảnh hồ sơ ${escapeHtml(profile.name)}">`).join("")}</div>`;
+}
+
+function renderViewedProfile(profile, connections, matches) {
+  const page = document.querySelector("#view-profile-content");
+  const name = cleanProfileName(profile.name);
+  const connection = connections.find((item) => item.user?.id === profile.id);
+  const matched = matches.some((item) => item.profile?.id === profile.id);
+  const connectionAction = connection?.status === "Accepted"
+    ? `<button class="profile-action secondary" type="button" disabled>Đã kết nối</button>`
+    : connection?.status === "Pending"
+      ? `<button class="profile-action secondary" type="button" disabled>Đã gửi lời mời</button>`
+      : `<button class="profile-action secondary" type="button" data-view-connect="${profile.id}">Kết nối</button>`;
+  const chatAction = matched
+    ? `<button class="profile-action" type="button" data-view-chat="${profile.id}">Nhắn tin</button>`
+    : `<button class="profile-action" type="button" disabled title="Chỉ nhắn tin sau khi đã kết đôi">Nhắn tin</button>`;
+  const interests = (profile.interests || []).map((interest) => `<span class="interest-chip">${escapeHtml(interest.name)}</span>`).join("");
+  page.innerHTML = `<button class="profile-back-button" type="button" data-view-back>← Quay lại</button>
+    <div class="view-profile-hero">${viewProfileGallery(profile)}<div class="view-profile-intro"><p class="eyebrow">HỒ SƠ CÔNG KHAI</p><h1>${escapeHtml(name)}, ${escapeHtml(ageFrom(profile.birthDate))}</h1><p class="view-profile-location">${escapeHtml([profile.city, profile.gender].filter(Boolean).join(" · ") || "Chưa cập nhật")}</p><div class="view-profile-actions"><button class="profile-action primary" type="button" data-view-swipe="${profile.id}">♡ Kết đôi</button>${connectionAction}${chatAction}</div></div></div>
+    <div class="view-profile-details"><section class="view-profile-card"><h2>Về ${escapeHtml(name)}</h2><p>${escapeHtml(profile.bio || "Chưa có phần giới thiệu.")}</p></section><section class="view-profile-card"><h2>Thông tin</h2><dl class="profile-facts">${profile.occupation ? `<div><dt>Công việc</dt><dd>${escapeHtml(profile.occupation)}</dd></div>` : ""}${profile.education ? `<div><dt>Học vấn</dt><dd>${escapeHtml(profile.education)}</dd></div>` : ""}<div><dt>Mục đích</dt><dd>${escapeHtml(lookingForLabel(profile.lookingFor))}</dd></div></dl></section>${interests ? `<section class="view-profile-card"><h2>Sở thích</h2><div class="person-interests">${interests}</div></section>` : ""}</div>`;
+}
+
+async function loadViewProfile(profileId) {
+  const loading = document.querySelector("#view-profile-loading");
+  const errorBox = document.querySelector("#view-profile-error");
+  const content = document.querySelector("#view-profile-content");
+  showPage("view-profile");
+  loading.hidden = false;
+  errorBox.hidden = true;
+  content.hidden = true;
+  try {
+    const profile = await request(`/profiles/${encodeURIComponent(profileId)}`);
+    let connections = [];
+    let matches = [];
+    try { [connections, matches] = await Promise.all([request("/connections"), request("/matches")]); } catch { }
+    appState.viewedProfile = profile.id;
+    renderViewedProfile(profile, connections, matches);
+    content.hidden = false;
+  } catch (error) {
+    errorBox.innerHTML = emptyState(error.status === 404 ? "Không tìm thấy hồ sơ" : "Không thể tải hồ sơ", error.status === 404 ? "Hồ sơ này có thể đã bị xóa hoặc không còn công khai." : "Kiểm tra kết nối mạng rồi thử lại.", "Quay lại Khám phá", "discover");
+    errorBox.hidden = false;
+  } finally {
+    loading.hidden = true;
+  }
+}
+
+function openProfileFromCard(event) {
+  const card = event.target.closest("[data-profile-id]");
+  const trigger = event.target.closest("[data-view-profile]");
+  if (!card) return;
+  if (trigger) {
+    loadViewProfile(trigger.dataset.viewProfile || card.dataset.profileId);
+    return;
+  }
+  if (event.target.closest("button, a, input, select, textarea")) return;
+  const profileId = card.dataset.profileId;
+  if (profileId) loadViewProfile(profileId);
+}
+
+async function handleViewedProfileAction(event) {
+  const button = event.target.closest("[data-view-swipe], [data-view-connect], [data-view-chat], [data-view-back]");
+  if (!button) return;
+  if (button.hasAttribute("data-view-back")) {
+    showPage("discover");
+    return;
+  }
+  if (button.hasAttribute("data-view-chat")) {
+    chatState.pendingUserId = button.dataset.viewChat;
+    showPage("chat");
+    return;
+  }
+  button.disabled = true;
+  try {
+    if (button.hasAttribute("data-view-swipe")) {
+      const result = await request("/swipes", { method: "POST", body: JSON.stringify({ targetUserId: button.dataset.viewSwipe, isLike: true }) });
+      button.textContent = result.isMatch ? "♥ Đã kết đôi" : "♥ Đã thích";
+      if (result.isMatch) await loadMatches();
+    } else {
+      await request(`/connections/${button.dataset.viewConnect}`, { method: "POST" });
+      button.textContent = "Đã gửi lời mời";
+    }
+  } catch (error) {
+    button.disabled = false;
+    notify(document.querySelector("#view-profile-error"), error.message);
+    document.querySelector("#view-profile-error").hidden = false;
+  }
 }
 
 async function loadProfile() {
@@ -535,6 +696,13 @@ async function swipe(event) {
   const buttons = card.querySelectorAll("button");
   buttons.forEach((item) => { item.disabled = true; });
   try {
+    if (button.dataset.swipe === "true") {
+      const burst = document.createElement("span");
+      burst.className = "heart-burst";
+      burst.textContent = "♥";
+      card.append(burst);
+      setTimeout(() => burst.remove(), 850);
+    }
     const result = await request("/swipes", {
       method: "POST",
       body: JSON.stringify({ targetUserId: card.dataset.profileId, isLike: button.dataset.swipe === "true" })
@@ -628,6 +796,7 @@ async function selectChatContact(userId) {
   }
   chatState.activeUserId = userId;
   document.querySelector("#chat-empty").hidden = true;
+  document.querySelector("#chat-layout")?.classList.add("has-active-chat");
   document.querySelector("#chat-thread-header").hidden = false;
   document.querySelector("#chat-form").hidden = false;
   const name = cleanProfileName(profile.name);
@@ -651,6 +820,7 @@ function clearActiveChat() {
   chatState.lastMessageKey = null;
   clearChatMediaUrls();
   document.querySelector("#chat-empty").hidden = false;
+  document.querySelector("#chat-layout")?.classList.remove("has-active-chat");
   document.querySelector("#chat-thread-header").hidden = true;
   document.querySelector("#chat-form").hidden = true;
   document.querySelector("#chat-form").reset();
@@ -841,6 +1011,7 @@ async function submitJourneyPost(event) {
       method: "POST",
       body: formData
     });
+document.querySelector("#chat-back-to-list").addEventListener("click", () => document.querySelector("#chat-layout")?.classList.remove("has-active-chat"));
     form.reset();
     clearJourneyPreview();
     await loadJourney();
@@ -855,7 +1026,7 @@ async function loadJourney() {
   try {
     const posts = await request("/journey?limit=20");
     if (!posts.length) {
-      feed.innerHTML = '<p class="empty-message">Chưa có bài viết nào trong hành trình. Hãy chia sẻ điều đầu tiên của bạn.</p>';
+      feed.innerHTML = emptyState("Hành trình đang chờ bạn", "Chia sẻ một khoảnh khắc nhỏ để bắt đầu câu chuyện.", "Đăng bài đầu tiên", "journey");
       return;
     }
 
@@ -1000,7 +1171,17 @@ async function startApp() {
   document.querySelector("#photo-form").addEventListener("submit", uploadPhoto);
   document.querySelector("#photo-list").addEventListener("click", managePhoto);
   document.querySelector("#discover-results").addEventListener("click", swipe);
+  document.querySelector("#discover-results").addEventListener("click", openProfileFromCard);
+  document.querySelector("#rooms-filter-form").addEventListener("submit", (event) => { event.preventDefault(); loadRooms(); });
+  document.querySelector("#rooms-results").addEventListener("click", (event) => { const button = event.target.closest("[data-room-join]"); if (button) joinRoom(button.dataset.roomJoin); });
+  document.querySelector("#create-room-button").addEventListener("click", () => document.querySelector("#create-room-dialog").showModal());
+  document.querySelector("#close-room-dialog").addEventListener("click", () => document.querySelector("#create-room-dialog").close());
+  document.querySelector("#create-room-form").addEventListener("submit", submitCreateRoom);
+  document.querySelector("#create-room-form [name=isPrivate]").addEventListener("change", toggleRoomInvite);
   document.querySelector("#matches-results").addEventListener("click", openChatFromMatch);
+  document.querySelector("#matches-results").addEventListener("click", openProfileFromCard);
+  document.querySelector("#view-profile-content").addEventListener("click", handleViewedProfileAction);
+  document.querySelector("#view-profile-error").addEventListener("click", handleViewedProfileAction);
   document.querySelector("#chat-contact-list").addEventListener("click", (event) => {
     const contact = event.target.closest("[data-chat-user]");
     if (contact) selectChatContact(contact.dataset.chatUser);
@@ -1044,7 +1225,41 @@ async function startApp() {
     }
   });
   document.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => showPage(button.dataset.page)));
+document.addEventListener("click", (event) => {
+  const action = event.target.closest("[data-empty-page]");
+  if (action) showPage(action.dataset.emptyPage);
+});
   document.querySelector("#logout-button").addEventListener("click", logout);
+document.querySelectorAll("#discover-filters input[type=range]").forEach((input) => input.addEventListener("input", () => {
+  const form = document.querySelector("#discover-filters");
+  const min = Number(form.elements.minAge.value);
+  const max = Number(form.elements.maxAge.value);
+  if (min > max) {
+    if (input.name === "minAge") form.elements.maxAge.value = min;
+    else form.elements.minAge.value = max;
+  }
+  document.querySelector("#age-range-output").value = `${form.elements.minAge.value}–${form.elements.maxAge.value}`;
+  document.querySelector("#age-range-output").textContent = `${form.elements.minAge.value}–${form.elements.maxAge.value}`;
+}));
+document.querySelector("#account-menu-toggle").addEventListener("click", () => {
+  const toggle = document.querySelector("#account-menu-toggle");
+  const menu = document.querySelector("#account-menu");
+  const expanded = toggle.getAttribute("aria-expanded") === "true";
+  toggle.setAttribute("aria-expanded", String(!expanded));
+  menu.hidden = expanded;
+});
+document.querySelector("#account-profile-link").addEventListener("click", () => {
+  document.querySelector("#account-menu-toggle").setAttribute("aria-expanded", "false");
+  document.querySelector("#account-menu").hidden = true;
+  showPage("profile");
+});
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".app-account")) {
+    document.querySelector("#account-menu-toggle")?.setAttribute("aria-expanded", "false");
+    const menu = document.querySelector("#account-menu");
+    if (menu) menu.hidden = true;
+  }
+});
   document.querySelector("#forgot-password-link").addEventListener("click", showForgotPassword);
   document.querySelector("#forgot-password-back").addEventListener("click", () => setAuthMode("login"));
   document.querySelector("#reset-password-back").addEventListener("click", () => setAuthMode("login"));
