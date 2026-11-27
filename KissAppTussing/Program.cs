@@ -47,6 +47,8 @@ builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<DateService>();
 builder.Services.AddScoped<SafetyService>();
 builder.Services.AddScoped<CommunityEventService>();
+builder.Services.AddScoped<RoomService>();
+builder.Services.AddScoped<CallService>();
 builder.Services.AddHostedService<DateReminderService>();
 builder.Services
 	.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -84,6 +86,7 @@ builder.Services
 			}
 		};
 	});
+builder.Services.AddSignalR();
 var configuredAdminUserIds = builder.Configuration.GetSection("Admin:UserIds").Get<Guid[]>() ?? [];
 builder.Services.AddAuthorization(options =>
 {
@@ -141,6 +144,8 @@ app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapHub<KissAppTussing.Hubs.ChatHub>("/hubs/chat");
+app.MapHub<KissAppTussing.Hubs.CallHub>("/hubs/call");
 
 if (app.Environment.IsDevelopment())
 {
@@ -161,6 +166,8 @@ app.MapNotificationEndpoints();
 app.MapDateEndpoints();
 app.MapSafetyEndpoints();
 app.MapCommunityEventEndpoints();
+app.MapRoomEndpoints();
+app.MapCallEndpoints();
 
 await using (var scope = app.Services.CreateAsyncScope())
 {

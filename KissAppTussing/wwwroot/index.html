@@ -11,7 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/app.css?v=undo-pass-20261102">
-  <script src="/app.js?v=undo-pass-20261102" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.11/signalr.min.js"></script>
+  <script src="/app.js?v=rooms-calls-20261127" defer></script>
 </head>
 <body>
   <main class="auth-layout">
@@ -95,6 +96,8 @@
         <button class="app-nav-item" data-page="journey" type="button">Hành trình</button>
         <button class="app-nav-item" data-page="matches" type="button">Lượt thích <span id="match-count">0</span></button>
         <button class="app-nav-item" data-page="chat" type="button">Tin nhắn</button>
+        <button class="app-nav-item" data-page="rooms" type="button">Phòng chat</button>
+        <button class="app-nav-item" data-page="calls" type="button">Cuộc gọi</button>
         <button class="app-nav-item" data-page="connections" type="button">Bạn bè <span id="connection-count">0</span></button>
         <button class="app-nav-item" data-page="passed" type="button">Từ chối <span id="passed-count">0</span></button>
         <button class="app-nav-item" data-page="notifications" type="button">Thông báo <span id="notification-count">0</span></button>
@@ -312,6 +315,58 @@
       <div class="chat-workspace"><aside class="conversation-sidebar"><h2>Cuộc trò chuyện</h2><div id="conversation-list" class="conversation-list"></div></aside><section class="chat-panel" aria-label="Cuộc trò chuyện"><header id="social-chat-heading" class="chat-heading"><div class="empty-message">Chọn một người bạn để bắt đầu trò chuyện.</div></header><div id="social-chat-messages" class="chat-messages" aria-live="polite"></div><form id="social-chat-form" class="chat-form" hidden><textarea name="content" rows="2" maxlength="2000" placeholder="Nhập tin nhắn..." required></textarea><button class="submit-button" type="submit">Gửi</button><small>Enter để gửi · Shift + Enter để xuống dòng</small></form></section></div>
       <p id="social-chat-message" class="form-message" role="status" aria-live="polite" hidden></p>
     </section>
+
+    <section id="rooms-page" class="app-page" hidden>
+      <header class="page-heading"><div><p class="eyebrow">TRÒ CHUYỆN NHÓM</p><h1>Phòng chat</h1></div><p>Tạo phòng nhóm, mời bạn bè và nhắn tin cùng nhau.</p></header>
+      <div class="rooms-layout">
+        <aside class="rooms-sidebar">
+          <form id="room-create-form" class="room-create-form">
+            <label class="field"><span>Tên phòng</span><input name="name" minlength="2" maxlength="80" placeholder="Nhóm của bạn" required></label>
+            <label class="field"><span>Mời bạn bè</span><select name="memberUserIds" id="room-member-select" multiple size="4"></select></label>
+            <p id="room-form-message" class="form-message" role="status" aria-live="polite" hidden></p>
+            <button class="submit-button" type="submit">Tạo phòng</button>
+          </form>
+          <div class="journey-feed-heading"><h2>Phòng của bạn</h2><button id="rooms-refresh" class="quiet-button" type="button">Làm mới</button></div>
+          <div id="room-list" class="conversation-list" aria-live="polite"></div>
+        </aside>
+        <section class="chat-panel" aria-label="Phòng chat">
+          <header id="room-chat-heading" class="chat-heading"><div class="empty-message">Chọn một phòng để bắt đầu trò chuyện.</div></header>
+          <div id="room-chat-messages" class="chat-messages" role="log" aria-live="polite"></div>
+          <form id="room-chat-form" class="chat-form" hidden>
+            <textarea name="content" rows="2" maxlength="2000" placeholder="Nhập tin nhắn nhóm..." required></textarea>
+            <button class="submit-button" type="submit">Gửi</button>
+          </form>
+          <p id="room-chat-message" class="form-message" role="status" aria-live="polite" hidden></p>
+        </section>
+      </div>
+    </section>
+
+    <section id="calls-page" class="app-page" hidden>
+      <header class="page-heading"><div><p class="eyebrow">GỌI THOẠI &amp; VIDEO</p><h1>Cuộc gọi</h1></div><p>Gọi thoại, gọi video riêng hoặc gọi nhóm ngay trong phòng chat.</p></header>
+      <form id="call-start-form" class="call-start-form">
+        <label class="field"><span>Gọi bạn bè</span><select name="recipientUserId" id="call-friend-select"><option value="">Chọn bạn bè</option></select></label>
+        <label class="field"><span>Loại cuộc gọi</span><select name="callType"><option value="Voice">Gọi thoại</option><option value="Video">Gọi video</option></select></label>
+        <button class="submit-button" type="submit">Bắt đầu cuộc gọi</button>
+      </form>
+      <p id="call-message" class="form-message" role="status" aria-live="polite" hidden></p>
+      <div class="journey-feed-heading"><h2>Lịch sử cuộc gọi</h2><button id="calls-refresh" class="quiet-button" type="button">Làm mới</button></div>
+      <div id="call-history" class="community-event-list" aria-live="polite"></div>
+    </section>
+
+    <div id="call-modal" class="call-modal" hidden aria-live="polite">
+      <div class="call-panel">
+        <p id="call-status" class="call-status">Đang kết nối...</p>
+        <video id="call-remote-video" class="call-video" autoplay playsinline></video>
+        <video id="call-local-video" class="call-local-video" autoplay playsinline muted></video>
+        <div class="call-controls">
+          <button id="call-answer" type="button">Trả lời</button>
+          <button id="call-decline" type="button">Từ chối</button>
+          <button id="call-end" type="button">Kết thúc</button>
+          <button id="call-toggle-mic" type="button">Tắt mic</button>
+          <button id="call-toggle-camera" type="button">Tắt camera</button>
+        </div>
+      </div>
+    </div>
 
     <section id="journey-page" class="app-page journey-page" hidden>
       <header class="page-heading"><div><p class="eyebrow">CHIA SẺ NHỮNG ĐIỀU ĐANG DIỄN RA</p><h1>Hành trình</h1></div><p>Một khoảnh khắc nhỏ cũng có thể mở đầu một câu chuyện.</p></header>

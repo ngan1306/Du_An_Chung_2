@@ -984,3 +984,21 @@ img, video { max-width: 100%; }
 @media (max-width: 460px) {
   .distance-filter { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ===== Rooms & Calls ===== */
+.rooms-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; align-items: start; }
+.room-create-form { display: grid; gap: 10px; padding: 14px; border: 1px solid rgba(15, 118, 110, .25); border-radius: 16px; margin-bottom: 14px; }
+.room-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.room-actions button { border: 1px solid rgba(15, 118, 110, .4); background: rgba(15, 118, 110, .08); color: #0f766e; padding: 6px 12px; border-radius: 999px; cursor: pointer; font-size: 13px; }
+.room-actions button:hover { background: rgba(15, 118, 110, .16); }
+.call-start-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; padding: 14px; border: 1px solid rgba(15, 118, 110, .25); border-radius: 16px; margin-bottom: 14px; align-items: end; }
+.call-modal { position: fixed; inset: 0; background: rgba(4, 12, 14, .82); display: grid; place-items: center; z-index: 999; }
+.call-panel { background: #062e2b; color: #ecfdf5; border-radius: 24px; padding: 22px; width: min(640px, 92vw); display: grid; gap: 14px; justify-items: center; }
+.call-status { font-weight: 600; letter-spacing: .02em; }
+.call-video { width: 100%; max-height: 46vh; border-radius: 16px; background: #000; aspect-ratio: 16/10; object-fit: cover; }
+.call-local-video { width: 160px; aspect-ratio: 4/3; border-radius: 12px; background: #000; border: 2px solid rgba(255, 255, 255, .35); margin-top: -120px; margin-right: -40%; align-self: end; position: relative; z-index: 2; }
+.call-controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.call-controls button { border: 0; border-radius: 999px; padding: 10px 20px; font-weight: 600; cursor: pointer; background: #0f766e; color: #fff; }
+.call-controls #call-decline, .call-controls #call-end { background: #b91c1c; }
+.call-controls #call-answer { background: #15803d; }
+@media (max-width: 720px) { .rooms-layout { grid-template-columns: minmax(0, 1fr); } .call-local-video { margin-right: 0; } }

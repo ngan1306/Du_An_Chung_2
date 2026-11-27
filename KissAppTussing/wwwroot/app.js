@@ -19,6 +19,10 @@ const chatState = {
 };
 let authMode = "login";
 
+const roomState = { rooms: [], activeRoomId: null, chatConnection: null, friends: [] };
+const callState = { connection: null, activeCall: null, peerConnection: null, localStream: null, pendingOffer: null, role: null, remoteUserId: null, micEnabled: true, cameraEnabled: true, incoming: false };
+const rtcConfig = { iceServers: [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }] };
+
 const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, (character) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 }[character]));
@@ -220,7 +224,7 @@ async function enterWorkspace() {
 }
 
 function showPage(page) {
-  for (const id of ["discover", "journey", "profile", "matches", "passed", "notifications", "dates", "events", "chat", "connections", "messages", "admin"]) {
+  for (const id of ["discover", "journey", "profile", "matches", "passed", "notifications", "dates", "events", "chat", "connections", "messages", "rooms", "calls", "admin"]) {
     document.getElementById(`${id}-page`).hidden = id !== page;
   }
   window.scrollTo(0, 0);
@@ -238,6 +242,8 @@ function showPage(page) {
   if (page === "messages") startSocialPolling();
   else stopSocialPolling();
   if (page === "admin") loadAdminOverview();
+  if (page === "rooms") { loadRooms(); connectChatHub(); }
+  if (page === "calls") { loadCallPage(); ensureCallHub(); }
   if (page === "notifications") loadNotifications();
   if (page === "dates") loadDates();
   if (page === "events") loadCommunityEvents();
@@ -1902,7 +1908,332 @@ async function deleteJourneyPost(event) {
   }
 }
 
+// ===================== ROOMS (group chat) =====================
+function connectChatHub() {
+  if (roomState.chatConnection) return;
+  if (typeof signalR === "undefined") return;
+  roomState.chatConnection = new signalR.HubConnectionBuilder()
+    .withUrl("/hubs/chat", { accessTokenFactory: () => appState.token })
+    .withAutomaticReconnect()
+    .build();
+  roomState.chatConnection.on("PresenceChanged", (payload) => {
+    if (payload?.userId) {
+      const room = roomState.rooms.find((item) => item.id === roomState.activeRoomId);
+      if (room) { const member = room.members.find((m) => m.userId === payload.userId); if (member) member.isOnline = payload.isOnline; renderRoomHeading(); }
+    }
+  });
+  roomState.chatConnection.on("RoomMessage", async (message) => {
+    if (message.roomId !== roomState.activeRoomId) { await loadRooms(); return; }
+    const container = document.querySelector("#room-chat-messages");
+    const wasNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+    container.insertAdjacentHTML("beforeend", roomMessageMarkup(message));
+    if (wasNearBottom) container.scrollTop = container.scrollHeight;
+  });
+  roomState.chatConnection.start().catch(() => {});
+}
+
+function roomMessageMarkup(message) {
+  const mine = message.senderId === appState.profile.id;
+  const time = new Date(message.sentAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  return `<article class="chat-message-row ${mine ? "is-mine" : ""}"><div class="chat-message-bubble">${mine ? "" : `<strong>${escapeHtml(message.senderName)}</strong>`}<p>${escapeHtml(message.content)}</p><time>${time}</time></div></article>`;
+}
+
+async function loadRooms() {
+  const list = document.querySelector("#room-list");
+  try {
+    const [rooms, connections] = await Promise.all([request("/rooms"), request("/connections?status=Accepted")]);
+    roomState.rooms = rooms;
+    roomState.friends = connections.filter((item) => item.status === "Accepted").map((item) => item.user);
+    const select = document.querySelector("#room-member-select");
+    select.innerHTML = roomState.friends.map((friend) => `<option value="${friend.id}">${escapeHtml(friend.name)}</option>`).join("") || '<option value="">Chưa có bạn bè</option>';
+    list.innerHTML = rooms.length ? rooms.map((room) => `<button class="conversation-item ${room.id === roomState.activeRoomId ? "is-active" : ""}" data-open-room="${room.id}" type="button"><span class="conversation-copy"><strong>${escapeHtml(room.name)}</strong><span>${escapeHtml(room.members.length + " thành viên · " + (room.lastMessage || "Chưa có tin nhắn"))}</span></span></button>`).join("") : '<p class="empty-message">Bạn chưa có phòng chat nào.</p>';
+    if (!roomState.activeRoomId && rooms.length) await selectRoom(rooms[0].id);
+    else if (!rooms.length) selectRoom(null);
+  } catch (error) {
+    list.innerHTML = `<p class="empty-message">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+async function selectRoom(roomId) {
+  roomState.activeRoomId = roomId;
+  const heading = document.querySelector("#room-chat-heading");
+  const container = document.querySelector("#room-chat-messages");
+  const form = document.querySelector("#room-chat-form");
+  document.querySelectorAll("[data-open-room]").forEach((button) => button.classList.toggle("is-active", button.dataset.openRoom === roomId));
+  if (!roomId) {
+    heading.innerHTML = '<div class="empty-message">Chọn một phòng để bắt đầu trò chuyện.</div>';
+    container.replaceChildren();
+    form.hidden = true;
+    return;
+  }
+  try {
+    const [room, messages] = await Promise.all([request(`/rooms/${roomId}`), request(`/rooms/${roomId}/messages`)]);
+    renderRoomHeading(room);
+    form.hidden = false;
+    container.innerHTML = messages.length ? messages.map(roomMessageMarkup).join("") : '<p class="chat-no-messages">Chưa có tin nhắn trong phòng. Hãy mở đầu nhé!</p>';
+    container.scrollTop = container.scrollHeight;
+    if (roomState.chatConnection) await roomState.chatConnection.invoke("JoinRoom", roomId).catch(() => {});
+  } catch (error) {
+    notify(document.querySelector("#room-chat-message"), error.message);
+  }
+}
+
+function renderRoomHeading(room) {
+  const data = room || roomState.rooms.find((item) => item.id === roomState.activeRoomId);
+  if (!data) return;
+  document.querySelector("#room-chat-heading").innerHTML = `
+    <div><strong>${escapeHtml(data.name)}</strong><span>${data.members.map((member) => `${escapeHtml(member.name)}${member.isOnline ? " · 🟢" : ""}`).join(", ")}</span></div>
+    <div class="room-actions">
+      <button id="room-call-button" type="button" data-room-call="${data.id}">📞 Gọi nhóm</button>
+      <button id="room-invite-button" type="button" data-room-invite="${data.id}">＋ Mời bạn</button>
+      ${data.isOwner ? `<button class="quiet-button" type="button" data-room-leave="${data.id}">Rời phòng</button>` : ""}
+    </div>`;
+}
+
+async function submitCreateRoom(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = new FormData(form);
+  const memberIds = Array.from(form.elements.memberUserIds.selectedOptions).map((option) => option.value);
+  const message = document.querySelector("#room-form-message");
+  try {
+    await request("/rooms", { method: "POST", body: JSON.stringify({ name: values.get("name").trim(), memberUserIds: memberIds }) });
+    form.reset();
+    roomState.activeRoomId = null;
+    await loadRooms();
+    notify(message, "Đã tạo phòng chat mới.", true);
+  } catch (error) { notify(message, error.message); }
+}
+
+async function submitRoomMessage(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const content = form.elements.content.value.trim();
+  if (!content || !roomState.activeRoomId) return;
+  try {
+    await request(`/rooms/${roomState.activeRoomId}/messages`, { method: "POST", body: JSON.stringify({ content }) });
+    form.elements.content.value = "";
+  } catch (error) { notify(document.querySelector("#room-chat-message"), error.message); }
+}
+
+async function manageRoomActions(event) {
+  const invite = event.target.closest("[data-room-invite]");
+  if (invite) {
+    const candidate = window.prompt("Nhập tên bạn bè muốn mời:");
+    if (!candidate) return;
+    const friend = roomState.friends.find((item) => item.name.toLowerCase() === candidate.trim().toLowerCase());
+    if (!friend) { notify(document.querySelector("#room-chat-message"), "Không tìm thấy bạn bè với tên này."); return; }
+    try {
+      await request(`/rooms/${invite.dataset.roomInvite}/invite/${friend.id}`, { method: "POST" });
+      await loadRooms();
+      notify(document.querySelector("#room-chat-message"), `Đã mời ${friend.name} vào phòng.`, true);
+    } catch (error) { notify(document.querySelector("#room-chat-message"), error.message); }
+    return;
+  }
+  const leave = event.target.closest("[data-room-leave]");
+  if (leave) {
+    if (!window.confirm("Rời phòng chat này?")) return;
+    try { await request(`/rooms/${leave.dataset.roomLeave}/leave`, { method: "POST" }); roomState.activeRoomId = null; await loadRooms(); }
+    catch (error) { notify(document.querySelector("#room-chat-message"), error.message); }
+    return;
+  }
+  const call = event.target.closest("[data-room-call]");
+  if (call) startCall({ callType: "Video", roomId: call.dataset.roomCall });
+}
+
+// ===================== CALLS (WebRTC) =====================
+function ensureCallHub() {
+  if (callState.connection || typeof signalR === "undefined") return;
+  callState.connection = new signalR.HubConnectionBuilder()
+    .withUrl("/hubs/call", { accessTokenFactory: () => appState.token })
+    .withAutomaticReconnect()
+    .build();
+  callState.connection.on("IncomingCall", onIncomingCall);
+  callState.connection.on("CallAnswered", onCallAnswered);
+  callState.connection.on("CallDeclined", onCallDeclined);
+  callState.connection.on("CallEnded", onCallEnded);
+  callState.connection.on("ReceiveOffer", onReceiveOffer);
+  callState.connection.on("ReceiveAnswer", onReceiveAnswer);
+  callState.connection.on("ReceiveIceCandidate", onReceiveIceCandidate);
+  callState.connection.start().catch(() => {});
+}
+
+function showCallModal(status, options = {}) {
+  document.querySelector("#call-modal").hidden = false;
+  document.querySelector("#call-status").textContent = status;
+  document.querySelector("#call-answer").hidden = !options.showAnswer;
+  document.querySelector("#call-decline").hidden = !options.showDecline;
+  document.querySelector("#call-end").hidden = !options.showEnd;
+}
+
+function hideCallModal() {
+  document.querySelector("#call-modal").hidden = true;
+  document.querySelector("#call-local-video").srcObject = null;
+  document.querySelector("#call-remote-video").srcObject = null;
+}
+
+async function startCall(payload) {
+  ensureCallHub();
+  try {
+    const call = await request("/calls", { method: "POST", body: JSON.stringify(payload) });
+    callState.activeCall = call;
+    callState.role = "caller";
+    callState.remoteUserId = call.recipientUserId || null;
+    showCallModal(`Đang gọi ${callTypeLabel(call.callType)}...`, { showEnd: true });
+    await prepareLocalMedia(call.callType);
+    if (callState.peerConnection) callState.peerConnection.close();
+    callState.peerConnection = new RTCPeerConnection(rtcConfig);
+    callState.localStream.getTracks().forEach((track) => callState.peerConnection.addTrack(track, callState.localStream));
+    callState.peerConnection.ontrack = (event) => { document.querySelector("#call-remote-video").srcObject = event.streams[0]; };
+    callState.peerConnection.onicecandidate = (event) => {
+      if (event.candidate && callState.remoteUserId)
+        callState.connection.invoke("SendIceCandidate", call.id, callState.remoteUserId, event.candidate.candidate, event.candidate.sdpMid, event.candidate.sdpMLineIndex).catch(() => {});
+    };
+    const offer = await callState.peerConnection.createOffer();
+    await callState.peerConnection.setLocalDescription(offer);
+    callState.pendingOffer = offer.sdp;
+    await loadCallHistory();
+  } catch (error) { notify(document.querySelector("#call-message"), error.message); }
+}
+
+function callTypeLabel(type) { return type === "Video" ? "video" : "thoại"; }
+
+async function prepareLocalMedia(callType) {
+  if (callState.localStream) return;
+  try {
+    const constraints = callType === "Video" ? { audio: true, video: true } : { audio: true };
+    callState.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    if (callType === "Video") document.querySelector("#call-local-video").srcObject = callState.localStream;
+  } catch (error) {
+    notify(document.querySelector("#call-message"), "Không truy cập được micro/camera: " + error.message);
+  }
+}
+
+async function onIncomingCall(payload) {
+  if (callState.activeCall) return;
+  callState.activeCall = { id: payload.callId, callType: payload.callType, callerUserId: payload.callerUserId, callerName: payload.callerName };
+  callState.remoteUserId = payload.callerUserId;
+  callState.role = "callee";
+  callState.incoming = true;
+  showCallModal(`Cuộc gọi ${callTypeLabel(payload.callType)} đến...`, { showAnswer: true, showDecline: true });
+}
+
+async function answerCall() {
+  if (!callState.activeCall) return;
+  await prepareLocalMedia(callState.activeCall.callType);
+  callState.peerConnection = new RTCPeerConnection(rtcConfig);
+  callState.localStream.getTracks().forEach((track) => callState.peerConnection.addTrack(track, callState.localStream));
+  callState.peerConnection.ontrack = (event) => { document.querySelector("#call-remote-video").srcObject = event.streams[0]; };
+  callState.peerConnection.onicecandidate = (event) => {
+    if (event.candidate && callState.remoteUserId)
+      callState.connection.invoke("SendIceCandidate", callState.activeCall.id, callState.remoteUserId, event.candidate.candidate, event.candidate.sdpMid, event.candidate.sdpMLineIndex).catch(() => {});
+  };
+  try { await request(`/calls/${callState.activeCall.id}/answer`, { method: "POST" }); } catch (error) { notify(document.querySelector("#call-message"), error.message); }
+  showCallModal("Đã kết nối", { showEnd: true });
+  if (callState.role === "callee") {
+    try { await callState.connection.invoke("AnswerCall", callState.activeCall.id, callState.remoteUserId); } catch { /* ignore */ }
+    const offer = await callState.peerConnection.createOffer();
+    await callState.peerConnection.setLocalDescription(offer);
+    await callState.connection.invoke("SendOffer", callState.activeCall.id, callState.remoteUserId, offer.sdp);
+  }
+  callState.incoming = false;
+  await loadCallHistory();
+}
+
+async function declineCall() {
+  if (!callState.activeCall) return;
+  try { await request(`/calls/${callState.activeCall.id}/decline`, { method: "POST" }); await callState.connection.invoke("DeclineCall", callState.activeCall.id, callState.remoteUserId); } catch { /* ignore */ }
+  cleanupCall();
+}
+
+async function endCall() {
+  if (!callState.activeCall) return;
+  try { await request(`/calls/${callState.activeCall.id}/end`, { method: "POST" }); } catch { /* ignore */ }
+  cleanupCall();
+  await loadCallHistory();
+}
+
+function cleanupCall() {
+  if (callState.peerConnection) { callState.peerConnection.close(); callState.peerConnection = null; }
+  if (callState.localStream) { callState.localStream.getTracks().forEach((track) => track.stop()); callState.localStream = null; }
+  callState.activeCall = null;
+  callState.remoteUserId = null;
+  callState.pendingOffer = null;
+  callState.role = null;
+  hideCallModal();
+}
+
+function onCallAnswered() { document.querySelector("#call-status").textContent = "Đã trả lời..."; if (callState.role === "caller" && callState.pendingOffer) callState.connection.invoke("SendOffer", callState.activeCall.id, callState.remoteUserId, callState.pendingOffer).catch(() => {}); }
+
+function onCallDeclined() { notify(document.querySelector("#call-message"), "Cuộc gọi bị từ chối."); cleanupCall(); }
+
+function onCallEnded() { cleanupCall(); loadCallHistory().catch(() => {}); }
+
+async function onReceiveOffer(payload) {
+  if (!callState.peerConnection) await answerCall();
+  await callState.peerConnection.setRemoteDescription(new RTCSessionDescription({ type: "offer", sdp: payload.sdp }));
+  const answer = await callState.peerConnection.createAnswer();
+  await callState.peerConnection.setLocalDescription(answer);
+  await callState.connection.invoke("SendAnswer", payload.callId, payload.fromUserId, answer.sdp);
+}
+
+async function onReceiveAnswer(payload) {
+  if (!callState.peerConnection) return;
+  await callState.peerConnection.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: payload.sdp }));
+}
+
+async function onReceiveIceCandidate(payload) {
+  if (!callState.peerConnection || !payload.candidate) return;
+  try { await callState.peerConnection.addIceCandidate(new RTCIceCandidate({ candidate: payload.candidate, sdpMid: payload.sdpMid, sdpMLineIndex: payload.sdpMLineIndex })); } catch { /* ignore */ }
+}
+
+async function loadCallPage() {
+  try {
+    const connections = await request("/connections?status=Accepted");
+    const friends = connections.filter((item) => item.status === "Accepted").map((item) => item.user);
+    document.querySelector("#call-friend-select").innerHTML = '<option value="">Chọn bạn bè</option>' + friends.map((friend) => `<option value="${friend.id}">${escapeHtml(friend.name)}</option>`).join("");
+  } catch { /* ignore */ }
+  await loadCallHistory();
+}
+
+async function loadCallHistory() {
+  const container = document.querySelector("#call-history");
+  try {
+    const history = await request("/rooms/calls/history");
+    container.innerHTML = history.length ? history.map((call) => {
+      const statusLabels = { Ringing: "Đổ chuông", Active: "Đang gọi", Completed: "Đã kết thúc", Declined: "Bị từ chối", Ended: "Đã kết thúc" };
+      const started = new Date(call.startedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" });
+      return `<article class="community-event-card"><div><strong>${call.callType === "Video" ? "🎥 Video" : "📞 Thoại"} · ${escapeHtml(statusLabels[call.status] || call.status)}</strong><small>${call.callerUserId === appState.profile.id ? "Bạn đã gọi" : escapeHtml(call.callerName)} · ${escapeHtml(call.recipientName || call.roomName || "")} · ${started}</small></div></article>`;
+    }).join("") : '<p class="empty-message">Chưa có cuộc gọi nào.</p>';
+  } catch (error) { container.innerHTML = `<p class="empty-message">${escapeHtml(error.message)}</p>`; }
+}
+
+async function submitStartCall(event) {
+  event.preventDefault();
+  const values = new FormData(event.currentTarget);
+  const recipientId = values.get("recipientUserId");
+  if (!recipientId) { notify(document.querySelector("#call-message"), "Hãy chọn bạn bè để gọi."); return; }
+  await startCall({ callType: values.get("callType"), recipientUserId: recipientId });
+}
+
+function toggleMic() {
+  if (!callState.localStream) return;
+  callState.micEnabled = !callState.micEnabled;
+  callState.localStream.getAudioTracks().forEach((track) => { track.enabled = callState.micEnabled; });
+  document.querySelector("#call-toggle-mic").textContent = callState.micEnabled ? "Tắt mic" : "Bật mic";
+}
+
+function toggleCamera() {
+  if (!callState.localStream) return;
+  callState.cameraEnabled = !callState.cameraEnabled;
+  callState.localStream.getVideoTracks().forEach((track) => { track.enabled = callState.cameraEnabled; });
+  document.querySelector("#call-toggle-camera").textContent = callState.cameraEnabled ? "Tắt camera" : "Bật camera";
+}
+
 function logout() {
+  cleanupCall();
+  if (roomState.chatConnection) { roomState.chatConnection.stop().catch(() => {}); roomState.chatConnection = null; }
+  if (callState.connection) { callState.connection.stop().catch(() => {}); callState.connection = null; }
   stopPresenceHeartbeat();
   stopChatPolling();
   stopSocialPolling();
@@ -2043,6 +2374,21 @@ async function startApp() {
     loadSocialMessages();
   });
   document.querySelector("#social-chat-form").addEventListener("submit", submitSocialMessage);
+  document.querySelector("#room-create-form").addEventListener("submit", submitCreateRoom);
+  document.querySelector("#room-list").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-open-room]");
+    if (button) selectRoom(button.dataset.openRoom);
+  });
+  document.querySelector("#room-chat-heading").addEventListener("click", manageRoomActions);
+  document.querySelector("#room-chat-form").addEventListener("submit", submitRoomMessage);
+  document.querySelector("#rooms-refresh").addEventListener("click", loadRooms);
+  document.querySelector("#call-start-form").addEventListener("submit", submitStartCall);
+  document.querySelector("#calls-refresh").addEventListener("click", loadCallHistory);
+  document.querySelector("#call-answer").addEventListener("click", answerCall);
+  document.querySelector("#call-decline").addEventListener("click", declineCall);
+  document.querySelector("#call-end").addEventListener("click", endCall);
+  document.querySelector("#call-toggle-mic").addEventListener("click", toggleMic);
+  document.querySelector("#call-toggle-camera").addEventListener("click", toggleCamera);
   document.querySelector("#social-chat-form textarea").addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
