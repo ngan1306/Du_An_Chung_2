@@ -9,16 +9,10 @@
   <title>Kiss | Đăng nhập</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<<<<<<< HEAD
-  <link rel="stylesheet" href="/app.css?v=visual-refresh-20261123">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js" defer></script>
-  <script src="/app.js?v=password-reset-20261026" defer></script>
-=======
-  <link rel="stylesheet" href="/app.css?v=accepted-friend-chat-20261125">
-  <script src="/app.js?v=accepted-friend-chat-20261125" defer></script>
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
+  <link rel="stylesheet" href="/app.css?v=workspace-merge-fix-1">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.11/signalr.min.js"></script>
+  <script src="/app.js?v=workspace-merge-fix-1" defer></script>
 </head>
 <body>
   <main class="auth-layout">
@@ -94,61 +88,31 @@
     </section>
   </main>
 
-  <main id="dating-app" class="dating-app app-layout" data-component="AppLayout" hidden>
+  <main id="dating-app" class="dating-app" hidden>
     <header class="app-header">
       <a class="app-brand" href="/" aria-label="Kiss"><span class="brand-mark">k</span><span>kiss</span></a>
-<<<<<<< HEAD
-      <nav class="app-nav" aria-label="Điều hướng chính">
-        <button class="app-nav-item is-active" data-page="discover" type="button"><svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 4.5 4.5"></path></svg>Khám phá</button>
-        <button class="app-nav-item" data-page="journey" type="button"><svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><path d="m12 2 1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7L12 2Z"></path><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"></path></svg>Hành trình</button>
-        <button class="app-nav-item" data-page="matches" type="button"><svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><path d="M20.8 8.8c0 5.2-8.8 11-8.8 11s-8.8-5.8-8.8-11A4.8 4.8 0 0 1 12 6.2a4.8 4.8 0 0 1 8.8 2.6Z"></path></svg>Kết đôi <span id="match-count">0</span></button>
-        <button class="app-nav-item" data-page="chat" type="button"><svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-9.5A7.5 7.5 0 0 1 10.5 4H12"></path><path d="M16 3v6m-3-3h6"></path></svg>Tin nhắn</button>
-         <button class="app-nav-item" data-page="rooms" type="button"><svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Phòng</button>
-        <button class="app-nav-item" data-page="connections" type="button"><svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20v-1.2A5.8 5.8 0 0 1 8.3 13h1.4a5.8 5.8 0 0 1 5.8 5.8V20M16 4.8a3.5 3.5 0 0 1 0 6.7m2 2a5.8 5.8 0 0 1 3.5 5.3V20"></path></svg>Kết nối <span id="connection-count">0</span></button>
-        <button class="app-nav-item" data-page="profile" type="button"><svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><circle cx="12" cy="8" r="3.5"></circle><path d="M4.5 21a7.5 7.5 0 0 1 15 0"></path></svg>Hồ sơ của tôi</button>
-        <button class="app-nav-item" data-page="admin" id="admin-nav" type="button" hidden>Quản trị</button>
-=======
       <nav class="app-nav" aria-label="Điều hướng">
         <button class="app-nav-item is-active" data-page="discover" type="button">Khám phá</button>
         <button class="app-nav-item" data-page="journey" type="button">Hành trình</button>
         <button class="app-nav-item" data-page="matches" type="button">Lượt thích <span id="match-count">0</span></button>
         <button class="app-nav-item" data-page="chat" type="button">Tin nhắn</button>
+        <button class="app-nav-item" data-page="rooms" type="button">Phòng chat</button>
+        <button class="app-nav-item" data-page="calls" type="button">Cuộc gọi</button>
         <button class="app-nav-item" data-page="connections" type="button">Bạn bè <span id="connection-count">0</span></button>
         <button class="app-nav-item" data-page="passed" type="button">Từ chối <span id="passed-count">0</span></button>
         <button class="app-nav-item" data-page="notifications" type="button">Thông báo <span id="notification-count">0</span></button>
         <button class="app-nav-item" data-page="dates" type="button">Lịch hẹn</button>
-        <button class="app-nav-item" data-page="events" id="events-nav" type="button" hidden>Sự kiện</button>
+        <button class="app-nav-item" data-page="events" type="button">Sự kiện</button>
         <button class="app-nav-item" data-page="profile" type="button">Hồ sơ của tôi</button>
         <button class="app-nav-item" data-page="admin" id="admin-nav" type="button" hidden>Quản trị viên</button>
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
       </nav>
-      <div class="app-account">
-        <button id="account-menu-toggle" class="account-menu-toggle" type="button" aria-expanded="false" aria-controls="account-menu">
-          <span id="app-user-avatar" class="account-avatar" aria-hidden="true">T</span>
-          <span id="app-user-name">Thành viên</span>
-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"></path></svg>
-        </button>
-        <div id="account-menu" class="account-menu" hidden>
-          <button id="account-profile-link" type="button">Hồ sơ của tôi</button>
-          <button id="logout-button" class="logout-button" type="button">Đăng xuất</button>
-        </div>
-      </div>
+      <div class="app-account"><span id="app-user-name">Thành viên</span><button id="logout-button" class="logout-button" type="button">Đăng xuất</button></div>
     </header>
 
     <section id="discover-page" class="app-page">
       <header class="page-heading"><div><p class="eyebrow">MỘT CUỘC GẶP MỚI</p><h1>Khám phá</h1></div><p>Tìm người cùng nhịp với bạn.</p></header>
       <form id="discover-filters" class="filter-bar">
         <label class="field"><span>Tìm theo tên</span><input name="search" type="search" placeholder="Tên hồ sơ"></label>
-<<<<<<< HEAD
-        <div class="age-range-field"><div class="range-heading"><span>Độ tuổi</span><output id="age-range-output">18–60</output></div><div class="range-inputs"><input name="minAge" type="range" min="18" max="80" value="18" aria-label="Tuổi tối thiểu"><input name="maxAge" type="range" min="18" max="80" value="60" aria-label="Tuổi tối đa"></div></div>
-        <details class="advanced-filters"><summary>Bộ lọc nâng cao</summary><div class="advanced-filter-grid">
-          <label class="field"><span>Giới tính</span><select name="gender"><option value="">Tất cả</option><option value="Woman">Nữ</option><option value="Man">Nam</option><option value="NonBinary">Phi nhị nguyên</option><option value="PreferNotToSay">Không chia sẻ</option></select></label>
-          <label class="field"><span>Thành phố</span><input name="city" type="search" maxlength="100" placeholder="Mọi nơi"></label>
-          <label class="field"><span>Mục đích</span><select name="lookingFor"><option value="">Bất kỳ</option><option value="Friendship">Kết bạn</option><option value="Dating">Hẹn hò</option><option value="Relationship">Mối quan hệ nghiêm túc</option></select></label>
-          <label class="field"><span>Sở thích</span><select name="interestId" id="filter-interest"><option value="">Tất cả</option></select></label>
-        </div></details>
-        <button class="submit-button" type="submit"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M4 5h16l-6.2 7.2v5.1l-3.6 1.8v-6.9L4 5Z"></path></svg>Lọc hồ sơ</button>
-=======
         <label class="field"><span>Giới tính</span><select name="gender"><option value="">Tất cả</option><option value="Woman">Nữ</option><option value="Man">Nam</option><option value="NonBinary">Phi nhị nguyên</option><option value="PreferNotToSay">Không chia sẻ</option></select></label>
         <label class="field"><span>Tuổi từ</span><input name="minAge" type="number" min="18" max="120" placeholder="18"></label>
         <label class="field"><span>Đến</span><input name="maxAge" type="number" min="18" max="120" placeholder="99"></label>
@@ -157,7 +121,6 @@
         <label class="field"><span>Sở thích</span><select name="interestId" id="filter-interest"><option value="">Tất cả</option></select></label>
         <div class="distance-filter"><label class="field"><span>Khoảng cách</span><select name="radiusKm"><option value="">Mọi khoảng cách</option><option value="10">Trong 10 km</option><option value="25">Trong 25 km</option><option value="50">Trong 50 km</option><option value="100">Trong 100 km</option></select></label><button id="discover-location-button" class="quiet-button" type="button">Dùng vị trí GPS</button></div>
         <button class="submit-button" type="submit">Lọc hồ sơ</button>
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
       </form>
       <p id="discover-message" class="form-message" role="status" aria-live="polite" hidden></p>
       <p id="location-message" class="form-message" role="status" aria-live="polite" hidden></p>
@@ -172,7 +135,7 @@
     </section>
 
     <section id="dates-page" class="app-page" hidden>
-      <header class="page-heading"><div><p class="eyebrow">LÊN KẾ HOẠCH GẶP MẶT</p><h1>Lịch hẹn</h1></div><p id="dates-description">Gửi lời mời đến người bạn đã kết đôi, chọn địa điểm và thời gian phù hợp.</p></header>
+      <header class="page-heading"><div><p class="eyebrow">LÊN KẾ HOẠCH GẶP MẶT</p><h1>Lịch hẹn</h1></div><p>Gửi lời mời đến người bạn đã kết đôi, chọn địa điểm và thời gian phù hợp.</p></header>
       <div class="date-planning-grid">
         <form id="date-invitation-form" class="date-invitation-form">
           <h2>Tạo lời mời hẹn hò</h2>
@@ -186,14 +149,14 @@
           <button class="submit-button" type="submit">Gửi lời mời</button>
         </form>
         <div class="date-list-panel">
-          <div class="journey-feed-heading"><h2 id="dates-list-heading">Lời mời và lịch sắp tới</h2><button id="dates-refresh" class="quiet-button" type="button">Làm mới</button></div>
+          <div class="journey-feed-heading"><h2>Lời mời và lịch sắp tới</h2><button id="dates-refresh" class="quiet-button" type="button">Làm mới</button></div>
           <div id="date-list" class="date-list" aria-live="polite"></div>
         </div>
       </div>
     </section>
 
     <section id="events-page" class="app-page" hidden>
-      <header class="page-heading"><div><p class="eyebrow">GẶP GỠ CỘNG ĐỒNG</p><h1>Sự kiện</h1></div><p>Quản lý sự kiện sắp tới và gửi thông báo đến người dùng.</p></header>
+      <header class="page-heading"><div><p class="eyebrow">GẶP GỠ CỘNG ĐỒNG</p><h1>Sự kiện</h1></div><p>Tạo một buổi gặp mặt hoặc tham gia sự kiện sắp tới.</p></header>
       <div class="community-events-grid">
         <form id="community-event-form" class="community-event-form">
           <h2>Tạo sự kiện</h2>
@@ -211,46 +174,11 @@
       </div>
     </section>
 
-    <section id="rooms-page" class="app-page" hidden>
-      <header class="page-heading"><div><p class="eyebrow">GẶP GỠ CỘNG ĐỒNG</p><h1>Phòng chat 🫶</h1></div><button id="create-room-button" class="submit-button" type="button">Tạo phòng <span aria-hidden="true">＋</span></button></header>
-      <form id="rooms-filter-form" class="rooms-toolbar">
-        <label class="field"><span>Tìm phòng</span><input name="search" type="search" placeholder="Tên hoặc mô tả phòng"></label>
-        <label class="field"><span>Chủ đề</span><input name="topic" maxlength="80" placeholder="Ví dụ: Âm nhạc"></label>
-        <button class="quiet-button" type="submit">Tìm kiếm</button>
-      </form>
-      <p id="rooms-message" class="form-message" role="status" aria-live="polite" hidden></p>
-      <div id="rooms-loading" class="rooms-grid" hidden><div class="room-skeleton"></div><div class="room-skeleton"></div><div class="room-skeleton"></div></div>
-      <div id="rooms-results" class="rooms-grid" aria-live="polite"></div>
-    </section>
-
-    <dialog id="create-room-dialog" class="room-dialog">
-      <form id="create-room-form" method="dialog" class="room-dialog-card">
-        <div class="room-dialog-heading"><div><p class="eyebrow">TẠO KHÔNG GIAN RIÊNG</p><h2>Tạo phòng mới ✨</h2></div><button id="close-room-dialog" class="icon-button" type="button" aria-label="Đóng">×</button></div>
-        <label class="field"><span>Tên phòng</span><input name="name" maxlength="120" required placeholder="Ví dụ: Chill cùng nhau"></label>
-        <label class="field"><span>Chủ đề</span><input name="topic" maxlength="80" placeholder="Âm nhạc, phim, du lịch..."></label>
-        <label class="field"><span>Mô tả</span><textarea name="description" maxlength="1000" rows="3" placeholder="Phòng này dành cho những ai?"></textarea></label>
-        <div class="room-form-grid"><label class="field"><span>Ảnh đại diện URL</span><input name="avatarUrl" maxlength="500" type="url" placeholder="https://..."></label><label class="field"><span>Tối đa thành viên</span><input name="maxMembers" type="number" min="2" max="500" value="50"></label></div>
-        <label class="room-private-toggle"><input name="isPrivate" type="checkbox"><span>Phòng riêng tư, cần mã mời</span></label>
-        <label id="room-invite-field" class="field" hidden><span>Mã mời</span><input name="inviteCode" maxlength="64" placeholder="Nhập mã mời"></label>
-        <p id="create-room-message" class="form-message" role="alert" hidden></p>
-        <button class="submit-button" type="submit">Tạo phòng <span aria-hidden="true">↗</span></button>
-      </form>
-    </dialog>
-
-    <section id="view-profile-page" class="app-page view-profile-page" hidden>
-      <div id="view-profile-loading" class="view-profile-skeleton" aria-label="Đang tải hồ sơ" hidden>
-        <div class="profile-skeleton-cover"></div><div class="profile-skeleton-line profile-skeleton-line-wide"></div><div class="profile-skeleton-line"></div><div class="profile-skeleton-block"></div>
-      </div>
-      <div id="view-profile-error" class="view-profile-state" role="alert" hidden></div>
-      <article id="view-profile-content" class="view-profile-content" hidden></article>
-    </section>
-
     <section id="profile-page" class="app-page" hidden>
-      <header class="page-heading"><div><p class="eyebrow">HỒ SƠ CỦA BẠN</p><h1>Giới thiệu về bạn ✨</h1></div><p>Thông tin chân thật giúp bắt đầu kết nối tốt hơn.</p></header>
+      <header class="page-heading"><div><p class="eyebrow">HỒ SƠ CỦA BẠN</p><h1>Giới thiệu về bạn</h1></div><p>Thông tin chân thật giúp bắt đầu kết nối tốt hơn.</p></header>
       <div class="profile-workspace">
         <form id="profile-form" class="profile-form">
-           <div class="profile-section-heading"><span>🌟</span><div><h2>Điều làm bạn là chính mình</h2><p>Hãy để mọi người biết thêm về bạn.</p></div></div>
-           <label class="field"><span>Họ tên</span><input name="name" required minlength="2" maxlength="80"></label>
+          <label class="field"><span>Họ tên</span><input name="name" required minlength="2" maxlength="80"></label>
           <label class="field"><span>Ngày sinh</span><input name="birthDate" type="date" required></label>
           <label class="field"><span>Giới tính</span><select name="gender" required><option value="Woman">Nữ</option><option value="Man">Nam</option><option value="NonBinary">Phi nhị nguyên</option><option value="PreferNotToSay">Không muốn chia sẻ</option></select></label>
           <label class="field"><span>Thành phố</span><input name="city" maxlength="100" placeholder="Ví dụ: Hà Nội"></label>
@@ -258,17 +186,13 @@
           <label class="field"><span>Học vấn</span><input name="education" maxlength="120" placeholder="Bạn học ở đâu?"></label>
           <label class="field"><span>Bạn đang tìm</span><select name="lookingFor" required><option value="Friendship">Kết bạn</option><option value="Dating">Hẹn hò</option><option value="Relationship">Mối quan hệ nghiêm túc</option></select></label>
           <label class="field profile-bio"><span>Giới thiệu</span><textarea name="bio" rows="4" maxlength="500" placeholder="Chia sẻ một chút về bạn"></textarea></label>
-           <div class="profile-interests"><p class="field-title">Sở thích 💜</p><div id="interest-options" class="interest-options"></div></div>
+          <div class="profile-interests"><p class="field-title">Sở thích</p><div id="interest-options" class="interest-options"></div></div>
           <p id="profile-message" class="form-message" role="status" aria-live="polite" hidden></p>
-<<<<<<< HEAD
-           <button class="submit-button profile-save-button" type="submit">Lưu thay đổi <span aria-hidden="true">↗</span></button>
-=======
           <button id="profile-tips-button" class="quiet-button" type="button">Gợi ý hoàn thiện hồ sơ</button>
           <button class="submit-button" type="submit">Lưu hồ sơ <span aria-hidden="true">↗</span></button>
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
         </form>
         <aside class="photo-manager">
-           <h2>Góc ảnh của bạn 📸</h2>
+          <h2>Ảnh hồ sơ</h2>
           <p>Tối đa 6 ảnh PNG, JPEG hoặc WebP, mỗi ảnh không quá 5 MB.</p>
           <form id="photo-form" class="photo-upload"><label class="field"><span>Thêm ảnh</span><input name="file" type="file" accept="image/png,image/jpeg,image/webp" required></label><button class="submit-button" type="submit">Tải ảnh lên</button></form>
           <div id="photo-list" class="photo-list"></div>
@@ -335,23 +259,15 @@
     </section>
 
     <section id="chat-page" class="app-page chat-page" hidden>
-<<<<<<< HEAD
-       <header class="page-heading"><div><p class="eyebrow">BẮT ĐẦU MỘT CUỘC TRÒ CHUYỆN</p><h1>Tin nhắn 💬</h1></div><p>Chỉ những người đã kết đôi mới có thể nhắn tin với nhau.</p></header>
-      <div id="chat-layout" class="chat-layout">
-        <aside class="chat-contact-panel" aria-label="Danh sách kết đôi">
-          <div class="chat-contact-heading"><h2>Kết đôi</h2><span id="chat-contact-count">0</span></div>
-=======
       <header class="page-heading"><div><p class="eyebrow">BẮT ĐẦU MỘT CUỘC TRÒ CHUYỆN</p><h1>Tin nhắn</h1></div><p>Bạn có thể nhắn tin với người đã thích mình hoặc người bạn đã thích.</p></header>
       <div class="chat-layout">
         <aside class="chat-contact-panel" aria-label="Danh sách trò chuyện">
           <div class="chat-contact-heading"><h2>Trò chuyện</h2><span id="chat-contact-count">0</span></div>
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
           <div id="chat-contact-list" class="chat-contact-list"></div>
         </aside>
         <section class="chat-thread" aria-label="Cuộc trò chuyện">
           <div id="chat-empty" class="chat-empty"><span aria-hidden="true">♡</span><strong>Chọn một người bạn để nhắn tin</strong><p>Bạn có thể gửi tin nhắn, ảnh, video và emoji.</p></div>
           <header id="chat-thread-header" class="chat-thread-header" hidden>
-            <button id="chat-back-to-list" class="chat-back-button" type="button">‹ Danh sách</button>
             <div id="chat-peer-avatar" class="chat-peer-avatar"></div>
             <div><strong id="chat-peer-name"></strong><span>Đã trở thành bạn bè</span></div>
             <button id="chat-peer-block" class="quiet-button" type="button">Chặn</button>
@@ -400,19 +316,66 @@
       <p id="social-chat-message" class="form-message" role="status" aria-live="polite" hidden></p>
     </section>
 
+    <section id="rooms-page" class="app-page" hidden>
+      <header class="page-heading"><div><p class="eyebrow">TRÒ CHUYỆN NHÓM</p><h1>Phòng chat</h1></div><p>Tạo phòng nhóm, mời bạn bè và nhắn tin cùng nhau.</p></header>
+      <div class="rooms-layout">
+        <aside class="rooms-sidebar">
+          <form id="room-create-form" class="room-create-form">
+            <label class="field"><span>Tên phòng</span><input name="name" minlength="2" maxlength="80" placeholder="Nhóm của bạn" required></label>
+            <label class="field"><span>Mời bạn bè</span><select name="memberUserIds" id="room-member-select" multiple size="4"></select></label>
+            <p id="room-form-message" class="form-message" role="status" aria-live="polite" hidden></p>
+            <button class="submit-button" type="submit">Tạo phòng</button>
+          </form>
+          <div class="journey-feed-heading"><h2>Phòng của bạn</h2><button id="rooms-refresh" class="quiet-button" type="button">Làm mới</button></div>
+          <div id="room-list" class="conversation-list" aria-live="polite"></div>
+        </aside>
+        <section class="chat-panel" aria-label="Phòng chat">
+          <header id="room-chat-heading" class="chat-heading"><div class="empty-message">Chọn một phòng để bắt đầu trò chuyện.</div></header>
+          <div id="room-chat-messages" class="chat-messages" role="log" aria-live="polite"></div>
+          <form id="room-chat-form" class="chat-form" hidden>
+            <textarea name="content" rows="2" maxlength="2000" placeholder="Nhập tin nhắn nhóm..." required></textarea>
+            <button class="submit-button" type="submit">Gửi</button>
+          </form>
+          <p id="room-chat-message" class="form-message" role="status" aria-live="polite" hidden></p>
+        </section>
+      </div>
+    </section>
+
+    <section id="calls-page" class="app-page" hidden>
+      <header class="page-heading"><div><p class="eyebrow">GỌI THOẠI &amp; VIDEO</p><h1>Cuộc gọi</h1></div><p>Gọi thoại, gọi video riêng hoặc gọi nhóm ngay trong phòng chat.</p></header>
+      <form id="call-start-form" class="call-start-form">
+        <label class="field"><span>Gọi bạn bè</span><select name="recipientUserId" id="call-friend-select"><option value="">Chọn bạn bè</option></select></label>
+        <label class="field"><span>Loại cuộc gọi</span><select name="callType"><option value="Voice">Gọi thoại</option><option value="Video">Gọi video</option></select></label>
+        <button class="submit-button" type="submit">Bắt đầu cuộc gọi</button>
+      </form>
+      <p id="call-message" class="form-message" role="status" aria-live="polite" hidden></p>
+      <div class="journey-feed-heading"><h2>Lịch sử cuộc gọi</h2><button id="calls-refresh" class="quiet-button" type="button">Làm mới</button></div>
+      <div id="call-history" class="community-event-list" aria-live="polite"></div>
+    </section>
+
+    <div id="call-modal" class="call-modal" hidden aria-live="polite">
+      <div class="call-panel">
+        <p id="call-status" class="call-status">Đang kết nối...</p>
+        <video id="call-remote-video" class="call-video" autoplay playsinline></video>
+        <video id="call-local-video" class="call-local-video" autoplay playsinline muted></video>
+        <div class="call-controls">
+          <button id="call-answer" type="button">Trả lời</button>
+          <button id="call-decline" type="button">Từ chối</button>
+          <button id="call-end" type="button">Kết thúc</button>
+          <button id="call-toggle-mic" type="button">Tắt mic</button>
+          <button id="call-toggle-camera" type="button">Tắt camera</button>
+        </div>
+      </div>
+    </div>
+
     <section id="journey-page" class="app-page journey-page" hidden>
-<<<<<<< HEAD
-      <header class="page-heading"><div><p class="eyebrow">CHIA SẺ NHỮNG ĐIỀU ĐANG DIỄN RA</p><h1>Hành trình 🌈</h1></div><p>Một khoảnh khắc nhỏ cũng có thể mở đầu một câu chuyện.</p></header>
-=======
       <header class="page-heading"><div><p class="eyebrow">CHIA SẺ NHỮNG ĐIỀU ĐANG DIỄN RA</p><h1>Hành trình</h1></div><p>Một khoảnh khắc nhỏ cũng có thể mở đầu một câu chuyện.</p></header>
       <div class="journey-stories-panel">
         <form id="story-form" class="story-form"><label class="field"><span>Story của bạn · tự hết hạn sau 24 giờ</span><textarea name="content" rows="2" maxlength="500" placeholder="Chia sẻ một khoảnh khắc ngắn..." required></textarea></label><button class="submit-button" type="submit">Đăng story</button></form>
         <div id="story-list" class="story-list" aria-live="polite"></div>
       </div>
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
       <form id="journey-form" class="journey-composer">
-        <div class="journey-composer-top"><span id="journey-composer-avatar" class="account-avatar" aria-hidden="true">K</span><label class="field journey-content-field"><span>Hôm nay bạn muốn chia sẻ điều gì?</span><textarea name="content" rows="4" maxlength="2000" placeholder="Viết một trạng thái, kể về ngày hôm nay..."></textarea></label></div>
-        <div class="journey-character-count" id="journey-character-count">0/2000</div>
+        <label class="field journey-content-field"><span>Hôm nay bạn muốn chia sẻ điều gì?</span><textarea name="content" rows="4" maxlength="2000" placeholder="Viết một trạng thái, kể về ngày hôm nay..."></textarea></label>
         <div class="journey-composer-footer">
           <label class="journey-media-picker"><span aria-hidden="true">＋</span><span>Thêm ảnh hoặc video</span><input id="journey-media" name="media" type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm"></label>
           <span class="journey-file-name" id="journey-file-name">PNG, JPEG, WebP hoặc MP4, WebM</span>
@@ -451,7 +414,7 @@
         <p id="admin-message" class="form-message" role="status" aria-live="polite" hidden></p>
       </div>
       <div class="admin-users-panel">
-        <div class="journey-feed-heading"><h2 id="admin-reports-heading">Báo cáo cần xử lý</h2><button id="admin-reports-refresh" class="quiet-button" type="button">Làm mới</button></div>
+        <div class="journey-feed-heading"><h2>Báo cáo cần xử lý</h2><button id="admin-reports-refresh" class="quiet-button" type="button">Làm mới</button></div>
         <div id="admin-reports" class="admin-reports" aria-live="polite"></div>
       </div>
       <div id="admin-announcement-panel" class="admin-users-panel">
@@ -473,7 +436,7 @@
         <div id="admin-audit-list" class="admin-audit-list" aria-live="polite"></div>
       </div>
     </section>
-      <footer class="app-footer"><span>Kiss <span>♥</span> kết nối chân thành</span></footer>
+    <footer class="app-footer"><span>Kiss <span>♥</span> kết nối chân thành</span><a href="/openapi/v1.json" target="_blank" rel="noreferrer">API docs ↗</a></footer>
   </main>
 </body>
 </html>

@@ -25,12 +25,6 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
     public DbSet<ConnectionRequest> ConnectionRequests => Set<ConnectionRequest>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<Message> Messages => Set<Message>();
-<<<<<<< HEAD
-    public DbSet<Room> Rooms => Set<Room>();
-    public DbSet<RoomMember> RoomMembers => Set<RoomMember>();
-    public DbSet<RoomMessage> RoomMessages => Set<RoomMessage>();
-    public DbSet<Report> Reports => Set<Report>();
-=======
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<HiddenChatMessage> HiddenChatMessages => Set<HiddenChatMessage>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
@@ -42,7 +36,11 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
     public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
     public DbSet<CommunityEvent> CommunityEvents => Set<CommunityEvent>();
     public DbSet<EventAttendance> EventAttendances => Set<EventAttendance>();
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
+    public DbSet<ChatRoom> ChatRooms => Set<ChatRoom>();
+    public DbSet<ChatRoomMember> ChatRoomMembers => Set<ChatRoomMember>();
+    public DbSet<ChatRoomMessage> ChatRoomMessages => Set<ChatRoomMessage>();
+    public DbSet<CallSession> CallSessions => Set<CallSession>();
+    public DbSet<CallParticipant> CallParticipants => Set<CallParticipant>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -282,15 +280,9 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
         modelBuilder.Entity<ConnectionRequest>().Property(connection => connection.Status).HasMaxLength(16);
         modelBuilder.Entity<ConnectionRequest>().Property(connection => connection.CreatedAt).HasConversion(UtcDateTimeOffsetConverter);
         modelBuilder.Entity<ConnectionRequest>().HasIndex(connection => new { connection.RequestedByUserId, connection.Status });
-<<<<<<< HEAD
-        modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.FirstUserId).OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.SecondUserId).OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.RequestedByUserId).OnDelete(DeleteBehavior.Restrict);
-=======
         modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.FirstUserId).OnDelete(DeleteBehavior.NoAction);
         modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.SecondUserId).OnDelete(DeleteBehavior.NoAction);
         modelBuilder.Entity<ConnectionRequest>().HasOne<User>().WithMany().HasForeignKey(connection => connection.RequestedByUserId).OnDelete(DeleteBehavior.NoAction);
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
 
         modelBuilder.Entity<Conversation>()
             .HasIndex(conversation => new { conversation.FirstUserId, conversation.SecondUserId })
@@ -298,46 +290,8 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
         modelBuilder.Entity<Conversation>().Property(conversation => conversation.FirstUserReadAt).HasConversion(UtcDateTimeOffsetConverter);
         modelBuilder.Entity<Conversation>().Property(conversation => conversation.SecondUserReadAt).HasConversion(UtcDateTimeOffsetConverter);
         modelBuilder.Entity<Conversation>().Property(conversation => conversation.UpdatedAt).HasConversion(UtcDateTimeOffsetConverter);
-<<<<<<< HEAD
-        modelBuilder.Entity<Conversation>().HasOne<User>().WithMany().HasForeignKey(conversation => conversation.FirstUserId).OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<Conversation>().HasOne<User>().WithMany().HasForeignKey(conversation => conversation.SecondUserId).OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<Room>()
-            .Property(room => room.CreatedAt)
-            .HasConversion(UtcDateTimeOffsetConverter);
-        modelBuilder.Entity<Room>().Property(room => room.Name).HasMaxLength(120);
-        modelBuilder.Entity<Room>().Property(room => room.Topic).HasMaxLength(80);
-        modelBuilder.Entity<Room>().Property(room => room.Description).HasMaxLength(1000);
-        modelBuilder.Entity<Room>().Property(room => room.AvatarUrl).HasMaxLength(500);
-        modelBuilder.Entity<Room>().Property(room => room.InviteCode).HasMaxLength(64);
-        modelBuilder.Entity<Room>().HasIndex(room => room.InviteCode).IsUnique().HasFilter("[InviteCode] IS NOT NULL");
-        modelBuilder.Entity<Room>().HasIndex(room => new { room.IsPrivate, room.CreatedAt });
-        modelBuilder.Entity<Room>().HasOne<User>().WithMany().HasForeignKey(room => room.OwnerId).OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<RoomMember>().HasKey(member => new { member.RoomId, member.UserId });
-        modelBuilder.Entity<RoomMember>().Property(member => member.Role).HasMaxLength(16);
-        modelBuilder.Entity<RoomMember>().Property(member => member.JoinedAt).HasConversion(UtcDateTimeOffsetConverter);
-        modelBuilder.Entity<RoomMember>().HasOne<Room>().WithMany().HasForeignKey(member => member.RoomId).OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<RoomMember>().HasOne<User>().WithMany().HasForeignKey(member => member.UserId).OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<RoomMessage>().Property(message => message.Content).HasMaxLength(1000);
-        modelBuilder.Entity<RoomMessage>().Property(message => message.MediaUrl).HasMaxLength(500);
-        modelBuilder.Entity<RoomMessage>().Property(message => message.CreatedAt).HasConversion(UtcDateTimeOffsetConverter);
-        modelBuilder.Entity<RoomMessage>().HasIndex(message => new { message.RoomId, message.CreatedAt });
-        modelBuilder.Entity<RoomMessage>().HasOne<Room>().WithMany().HasForeignKey(message => message.RoomId).OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<RoomMessage>().HasOne<User>().WithMany().HasForeignKey(message => message.SenderId).OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<Report>().Property(report => report.Reason).HasMaxLength(500);
-        modelBuilder.Entity<Report>().Property(report => report.CreatedAt).HasConversion(UtcDateTimeOffsetConverter);
-        modelBuilder.Entity<Report>().HasIndex(report => new { report.RoomId, report.CreatedAt });
-        modelBuilder.Entity<Report>().HasOne<User>().WithMany().HasForeignKey(report => report.ReporterId).OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<Report>().HasOne<User>().WithMany().HasForeignKey(report => report.TargetUserId).OnDelete(DeleteBehavior.NoAction);
-        modelBuilder.Entity<Report>().HasOne<Room>().WithMany().HasForeignKey(report => report.RoomId).OnDelete(DeleteBehavior.NoAction);
-        modelBuilder.Entity<Report>().HasOne<RoomMessage>().WithMany().HasForeignKey(report => report.MessageId).OnDelete(DeleteBehavior.NoAction);
-=======
         modelBuilder.Entity<Conversation>().HasOne<User>().WithMany().HasForeignKey(conversation => conversation.FirstUserId).OnDelete(DeleteBehavior.NoAction);
         modelBuilder.Entity<Conversation>().HasOne<User>().WithMany().HasForeignKey(conversation => conversation.SecondUserId).OnDelete(DeleteBehavior.NoAction);
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
 
         modelBuilder.Entity<Message>().Property(message => message.Content).HasMaxLength(2000);
         modelBuilder.Entity<Message>().Property(message => message.SentAt).HasConversion(UtcDateTimeOffsetConverter);
@@ -423,5 +377,43 @@ internal sealed class DatingDbContext(DbContextOptions<DatingDbContext> options)
         modelBuilder.Entity<EventAttendance>().Property(item => item.JoinedAt).HasConversion(UtcDateTimeOffsetConverter);
         modelBuilder.Entity<EventAttendance>().HasOne(item => item.Event).WithMany(item => item.Attendees).HasForeignKey(item => item.EventId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<EventAttendance>().HasOne(item => item.User).WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ChatRoom>().Property(room => room.Name).HasMaxLength(80);
+        modelBuilder.Entity<ChatRoom>().Property(room => room.RoomType).HasMaxLength(16).HasDefaultValue("Group");
+        modelBuilder.Entity<ChatRoom>().Property(room => room.CreatedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<ChatRoom>().Property(room => room.UpdatedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<ChatRoom>().HasIndex(room => room.CreatedAt);
+        modelBuilder.Entity<ChatRoom>().HasOne(room => room.Creator).WithMany().HasForeignKey(room => room.CreatorUserId).OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ChatRoomMember>().HasKey(member => new { member.RoomId, member.UserId });
+        modelBuilder.Entity<ChatRoomMember>().Property(member => member.Role).HasMaxLength(16).HasDefaultValue("Member");
+        modelBuilder.Entity<ChatRoomMember>().Property(member => member.JoinedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<ChatRoomMember>().HasIndex(member => member.UserId);
+        modelBuilder.Entity<ChatRoomMember>().HasOne(member => member.Room).WithMany(room => room.Members).HasForeignKey(member => member.RoomId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<ChatRoomMember>().HasOne(member => member.User).WithMany().HasForeignKey(member => member.UserId).OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ChatRoomMessage>().Property(message => message.Content).HasMaxLength(2000);
+        modelBuilder.Entity<ChatRoomMessage>().Property(message => message.SentAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<ChatRoomMessage>().HasIndex(message => new { message.RoomId, message.SentAt, message.Id });
+        modelBuilder.Entity<ChatRoomMessage>().HasOne(message => message.Room).WithMany(room => room.Messages).HasForeignKey(message => message.RoomId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<ChatRoomMessage>().HasOne(message => message.Sender).WithMany().HasForeignKey(message => message.SenderId).OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<CallSession>().Property(call => call.CallType).HasMaxLength(16);
+        modelBuilder.Entity<CallSession>().Property(call => call.Status).HasMaxLength(16);
+        modelBuilder.Entity<CallSession>().Property(call => call.StartedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<CallSession>().Property(call => call.AnsweredAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<CallSession>().Property(call => call.EndedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<CallSession>().HasIndex(call => new { call.CallerUserId, call.StartedAt });
+        modelBuilder.Entity<CallSession>().HasIndex(call => call.RecipientUserId);
+        modelBuilder.Entity<CallSession>().HasOne(call => call.Caller).WithMany().HasForeignKey(call => call.CallerUserId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<CallSession>().HasOne(call => call.Recipient).WithMany().HasForeignKey(call => call.RecipientUserId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<CallSession>().HasOne(call => call.Room).WithMany().HasForeignKey(call => call.RoomId).OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<CallParticipant>().HasKey(participant => new { participant.CallId, participant.UserId });
+        modelBuilder.Entity<CallParticipant>().Property(participant => participant.Status).HasMaxLength(16);
+        modelBuilder.Entity<CallParticipant>().Property(participant => participant.JoinedAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<CallParticipant>().Property(participant => participant.LeftAt).HasConversion(UtcDateTimeOffsetConverter);
+        modelBuilder.Entity<CallParticipant>().HasOne(participant => participant.Call).WithMany(call => call.Participants).HasForeignKey(participant => participant.CallId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CallParticipant>().HasOne(participant => participant.User).WithMany().HasForeignKey(participant => participant.UserId).OnDelete(DeleteBehavior.NoAction);
     }
 }

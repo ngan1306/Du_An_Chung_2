@@ -59,6 +59,77 @@ namespace KissAppTussing.Migrations
                     b.ToTable("AdminAuditLogs");
                 });
 
+            modelBuilder.Entity("KissAppTussing.Models.CallParticipant", b =>
+                {
+                    b.Property<Guid>("CallId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("JoinedAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("LeftAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("CallId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("CallParticipants");
+                });
+
+            modelBuilder.Entity("KissAppTussing.Models.CallSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("AnsweredAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CallType")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid>("CallerUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("EndedAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("RecipientUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RoomId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("StartedAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipientUserId");
+
+                    b.HasIndex("RoomId");
+
+                    b.HasIndex("CallerUserId", "StartedAt");
+
+                    b.ToTable("CallSessions");
+                });
+
             modelBuilder.Entity("KissAppTussing.Models.ChatMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -102,6 +173,96 @@ namespace KissAppTussing.Migrations
                     b.HasIndex("SenderId", "RecipientId", "SentAt");
 
                     b.ToTable("ChatMessages");
+                });
+
+            modelBuilder.Entity("KissAppTussing.Models.ChatRoom", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("CreatorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("RoomType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)")
+                        .HasDefaultValue("Group");
+
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("CreatorUserId");
+
+                    b.ToTable("ChatRooms");
+                });
+
+            modelBuilder.Entity("KissAppTussing.Models.ChatRoomMember", b =>
+                {
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("JoinedAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)")
+                        .HasDefaultValue("Member");
+
+                    b.HasKey("RoomId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ChatRoomMembers");
+                });
+
+            modelBuilder.Entity("KissAppTussing.Models.ChatRoomMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("SentAt")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SenderId");
+
+                    b.HasIndex("RoomId", "SentAt", "Id");
+
+                    b.ToTable("ChatRoomMessages");
                 });
 
             modelBuilder.Entity("KissAppTussing.Models.CommunityEvent", b =>
@@ -657,125 +818,7 @@ namespace KissAppTussing.Migrations
                     b.ToTable("ProfilePhotos");
                 });
 
-<<<<<<< HEAD
-            modelBuilder.Entity("KissAppTussing.Models.Report", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<long>("CreatedAt")
-                        .HasColumnType("bigint");
-
-                    b.Property<Guid?>("MessageId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<Guid>("ReporterId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("RoomId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("TargetUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MessageId");
-
-                    b.HasIndex("ReporterId");
-
-                    b.HasIndex("TargetUserId");
-
-                    b.HasIndex("RoomId", "CreatedAt");
-
-                    b.ToTable("Reports");
-                });
-
-            modelBuilder.Entity("KissAppTussing.Models.Room", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("AvatarUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<long>("CreatedAt")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("InviteCode")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<bool>("IsPrivate")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("MaxMembers")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.Property<Guid>("OwnerId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Topic")
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("InviteCode")
-                        .IsUnique()
-                        .HasFilter("[InviteCode] IS NOT NULL");
-
-                    b.HasIndex("OwnerId");
-
-                    b.HasIndex("IsPrivate", "CreatedAt");
-
-                    b.ToTable("Rooms");
-                });
-
-            modelBuilder.Entity("KissAppTussing.Models.RoomMember", b =>
-                {
-                    b.Property<Guid>("RoomId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<long>("JoinedAt")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
-
-                    b.HasKey("RoomId", "UserId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("RoomMembers");
-                });
-
-            modelBuilder.Entity("KissAppTussing.Models.RoomMessage", b =>
-=======
             modelBuilder.Entity("KissAppTussing.Models.Story", b =>
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -783,49 +826,25 @@ namespace KissAppTussing.Migrations
 
                     b.Property<string>("Content")
                         .IsRequired()
-<<<<<<< HEAD
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-=======
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
 
                     b.Property<long>("CreatedAt")
                         .HasColumnType("bigint");
 
-<<<<<<< HEAD
-                    b.Property<string>("MediaUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<Guid>("RoomId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("SenderId")
-=======
                     b.Property<long>("ExpiresAt")
                         .HasColumnType("bigint");
 
                     b.Property<Guid>("UserId")
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
-<<<<<<< HEAD
-                    b.HasIndex("SenderId");
-
-                    b.HasIndex("RoomId", "CreatedAt");
-
-                    b.ToTable("RoomMessages");
-=======
                     b.HasIndex("UserId");
 
                     b.HasIndex("ExpiresAt", "UserId");
 
                     b.ToTable("Stories");
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
                 });
 
             modelBuilder.Entity("KissAppTussing.Models.Swipe", b =>
@@ -1089,6 +1108,50 @@ namespace KissAppTussing.Migrations
                     b.ToTable("UserSessions");
                 });
 
+            modelBuilder.Entity("KissAppTussing.Models.CallParticipant", b =>
+                {
+                    b.HasOne("KissAppTussing.Models.CallSession", "Call")
+                        .WithMany("Participants")
+                        .HasForeignKey("CallId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KissAppTussing.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Call");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("KissAppTussing.Models.CallSession", b =>
+                {
+                    b.HasOne("KissAppTussing.Models.User", "Caller")
+                        .WithMany()
+                        .HasForeignKey("CallerUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("KissAppTussing.Models.User", "Recipient")
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("KissAppTussing.Models.ChatRoom", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Caller");
+
+                    b.Navigation("Recipient");
+
+                    b.Navigation("Room");
+                });
+
             modelBuilder.Entity("KissAppTussing.Models.ChatMessage", b =>
                 {
                     b.HasOne("KissAppTussing.Models.User", "Recipient")
@@ -1104,6 +1167,55 @@ namespace KissAppTussing.Migrations
                         .IsRequired();
 
                     b.Navigation("Recipient");
+
+                    b.Navigation("Sender");
+                });
+
+            modelBuilder.Entity("KissAppTussing.Models.ChatRoom", b =>
+                {
+                    b.HasOne("KissAppTussing.Models.User", "Creator")
+                        .WithMany()
+                        .HasForeignKey("CreatorUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Creator");
+                });
+
+            modelBuilder.Entity("KissAppTussing.Models.ChatRoomMember", b =>
+                {
+                    b.HasOne("KissAppTussing.Models.ChatRoom", "Room")
+                        .WithMany("Members")
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KissAppTussing.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Room");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("KissAppTussing.Models.ChatRoomMessage", b =>
+                {
+                    b.HasOne("KissAppTussing.Models.ChatRoom", "Room")
+                        .WithMany("Messages")
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KissAppTussing.Models.User", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Room");
 
                     b.Navigation("Sender");
                 });
@@ -1124,29 +1236,18 @@ namespace KissAppTussing.Migrations
                     b.HasOne("KissAppTussing.Models.User", null)
                         .WithMany()
                         .HasForeignKey("FirstUserId")
-<<<<<<< HEAD
-                        .OnDelete(DeleteBehavior.Restrict)
-=======
                         .OnDelete(DeleteBehavior.NoAction)
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
                         .IsRequired();
 
                     b.HasOne("KissAppTussing.Models.User", null)
                         .WithMany()
                         .HasForeignKey("RequestedByUserId")
-<<<<<<< HEAD
-                        .OnDelete(DeleteBehavior.Restrict)
-=======
                         .OnDelete(DeleteBehavior.NoAction)
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
                         .IsRequired();
 
                     b.HasOne("KissAppTussing.Models.User", null)
                         .WithMany()
                         .HasForeignKey("SecondUserId")
-<<<<<<< HEAD
-                        .OnDelete(DeleteBehavior.Restrict)
-=======
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
                 });
@@ -1157,7 +1258,6 @@ namespace KissAppTussing.Migrations
                         .WithMany()
                         .HasForeignKey("ReporterUserId")
                         .OnDelete(DeleteBehavior.NoAction)
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
                         .IsRequired();
                 });
 
@@ -1166,19 +1266,12 @@ namespace KissAppTussing.Migrations
                     b.HasOne("KissAppTussing.Models.User", null)
                         .WithMany()
                         .HasForeignKey("FirstUserId")
-<<<<<<< HEAD
-                        .OnDelete(DeleteBehavior.Restrict)
-=======
                         .OnDelete(DeleteBehavior.NoAction)
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
                         .IsRequired();
 
                     b.HasOne("KissAppTussing.Models.User", null)
                         .WithMany()
                         .HasForeignKey("SecondUserId")
-<<<<<<< HEAD
-                        .OnDelete(DeleteBehavior.Restrict)
-=======
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
                 });
@@ -1208,7 +1301,6 @@ namespace KissAppTussing.Migrations
                         .WithMany("Reviews")
                         .HasForeignKey("InvitationId")
                         .OnDelete(DeleteBehavior.Cascade)
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
                         .IsRequired();
 
                     b.HasOne("KissAppTussing.Models.User", "Reviewer")
@@ -1379,62 +1471,6 @@ namespace KissAppTussing.Migrations
                     b.Navigation("User");
                 });
 
-<<<<<<< HEAD
-            modelBuilder.Entity("KissAppTussing.Models.Report", b =>
-                {
-                    b.HasOne("KissAppTussing.Models.RoomMessage", null)
-                        .WithMany()
-                        .HasForeignKey("MessageId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("KissAppTussing.Models.User", null)
-                        .WithMany()
-                        .HasForeignKey("ReporterId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("KissAppTussing.Models.Room", null)
-                        .WithMany()
-                        .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("KissAppTussing.Models.User", null)
-                        .WithMany()
-                        .HasForeignKey("TargetUserId")
-                        .OnDelete(DeleteBehavior.NoAction);
-                });
-
-            modelBuilder.Entity("KissAppTussing.Models.Room", b =>
-                {
-                    b.HasOne("KissAppTussing.Models.User", null)
-                        .WithMany()
-                        .HasForeignKey("OwnerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("KissAppTussing.Models.RoomMember", b =>
-                {
-                    b.HasOne("KissAppTussing.Models.Room", null)
-                        .WithMany()
-                        .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("KissAppTussing.Models.User", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("KissAppTussing.Models.RoomMessage", b =>
-                {
-                    b.HasOne("KissAppTussing.Models.Room", null)
-                        .WithMany()
-                        .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.Cascade)
-=======
             modelBuilder.Entity("KissAppTussing.Models.Story", b =>
                 {
                     b.HasOne("KissAppTussing.Models.User", "User")
@@ -1452,18 +1488,12 @@ namespace KissAppTussing.Migrations
                         .WithMany()
                         .HasForeignKey("BlockedUserId")
                         .OnDelete(DeleteBehavior.NoAction)
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
                         .IsRequired();
 
                     b.HasOne("KissAppTussing.Models.User", null)
                         .WithMany()
-<<<<<<< HEAD
-                        .HasForeignKey("SenderId")
-                        .OnDelete(DeleteBehavior.Restrict)
-=======
                         .HasForeignKey("BlockerUserId")
                         .OnDelete(DeleteBehavior.NoAction)
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
                         .IsRequired();
                 });
 
@@ -1502,6 +1532,18 @@ namespace KissAppTussing.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("KissAppTussing.Models.CallSession", b =>
+                {
+                    b.Navigation("Participants");
+                });
+
+            modelBuilder.Entity("KissAppTussing.Models.ChatRoom", b =>
+                {
+                    b.Navigation("Members");
+
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("KissAppTussing.Models.CommunityEvent", b =>

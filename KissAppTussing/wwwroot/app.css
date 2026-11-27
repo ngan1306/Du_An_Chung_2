@@ -255,8 +255,10 @@ a { color: inherit; text-decoration: none; }
 .form-message { margin: 0; color: var(--red); font-size: 12px; line-height: 1.5; }
 .form-message.is-success { color: var(--green-soft); }
 .auth-legal { margin: 16px 0 0; color: #938d85; font-size: 10px; line-height: 1.5; text-align: center; }
-.auth-text-button { justify-self: center; padding: 4px 8px; border: 0; color: var(--green); background: transparent; font-size: 11px; font-weight: 700; cursor: pointer; }
-.auth-text-button:hover { text-decoration: underline; }
+.auth-links { display: grid; justify-items: center; gap: 8px; margin-top: 12px; }
+.auth-links a, .auth-text-button { color: var(--green); font-size: 12px; font-weight: 700; text-decoration: none; }
+.auth-links a:hover, .auth-text-button:hover { text-decoration: underline; }
+.auth-text-button { justify-self: center; padding: 4px 8px; }
 .privacy-note { margin: 0; padding: 12px; border: 1px solid #e8e4dc; border-radius: 4px; color: #625b54; background: #faf8f4; font-size: 10px; line-height: 1.6; }
 .auth-footer { display: flex; justify-content: space-between; gap: 15px; margin-top: auto; padding-top: 40px; color: #958e85; font-size: 10px; }
 .auth-footer a { flex: none; color: var(--green); font-weight: 700; }
@@ -623,7 +625,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 .auth-layout { grid-template-columns: minmax(0, 1fr) minmax(420px, .92fr); background: var(--page); }
 .auth-story { background: #e7f3f0; }
-.auth-reference { object-fit: cover; }
+.auth-reference { object-fit: cover; object-position: center; }
 .auth-panel { width: min(100%, 620px); padding: 54px clamp(32px, 6vw, 88px) 30px; background: var(--surface); }
 .eyebrow { color: var(--green); font-size: 11px; letter-spacing: .09em; }
 .auth-heading h1, .page-heading h1 { color: var(--ink); font-weight: 700; letter-spacing: -.035em; }
@@ -671,6 +673,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .form-message { color: #b91c1c; font-size: 13px; }
 .form-message.is-success { color: var(--success); }
 .auth-legal, .auth-footer { color: var(--muted); font-size: 11px; }
+
+body.auth-mode .auth-layout { width: 100%; min-height: 100vh; }
+body:not(.app-mode) #dating-app,
+body.auth-mode .dating-app,
+body.auth-mode .app-header { display: none !important; }
+body.app-mode .auth-layout { display: none !important; }
+.auth-links { gap: 12px; margin-top: 20px; }
 
 .dating-app {
   display: grid;
@@ -1057,7 +1066,6 @@ img, video { max-width: 100%; }
   .social-user-card > :last-child { grid-column: 2; justify-self: start; }
 }
 
-<<<<<<< HEAD
 /* Polish the signed-in workspace without changing its markup or behavior. */
 .dating-app {
   --red: #e11d48;
@@ -1374,6 +1382,15 @@ h1, h2, h3, h4, h5, h6, button, input, textarea, select { font-family: inherit; 
   #dating-app.app-layout .app-page { width: calc(100% - 32px) !important; padding-top: 88px !important; }
   #dating-app.app-layout .page-heading { align-items: flex-start !important; gap: 8px !important; }
   #dating-app.app-layout .page-heading > p { max-width: none !important; text-align: left !important; }
+}
+
+body:not(.app-mode) #dating-app.app-layout,
+body.auth-mode #dating-app.app-layout {
+  display: none !important;
+}
+body:not(.app-mode) #dating-app.app-layout .app-header,
+body.auth-mode #dating-app.app-layout .app-header {
+  display: none !important;
 }
 
 /* Discovery page visual refresh; keep existing page and interaction hooks intact. */
@@ -2400,7 +2417,8 @@ button { cursor: pointer; }
   #discover-page .person-card-body { min-height: 106px; padding: 9px 8px; }
   #discover-page .card-round-action { width: 34px; height: 34px; min-height: 34px; flex-basis: 34px; font-size: 15px; }
   #discover-page .card-round-action.like { width: 42px; height: 42px; flex-basis: 42px; font-size: 21px; }
-=======
+}
+
 .admin-user-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .admin-user-form .field { min-width: 0; }
 .admin-user-form .field small { margin: 0; }
@@ -2586,5 +2604,254 @@ button { cursor: pointer; }
 
 @media (max-width: 460px) {
   .distance-filter { grid-template-columns: minmax(0, 1fr); }
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
 }
+
+body.auth-mode #dating-app,
+body.auth-mode .app-header,
+body.auth-mode .app-nav,
+body.auth-mode .app-account {
+  display: none !important;
+}
+
+/* Keep the app shell hidden even when its discovery layout rule uses !important. */
+body.auth-mode #dating-app:has(#discover-page:not([hidden])) {
+  display: none !important;
+}
+
+body.app-mode .auth-layout { display: none !important; }
+body.app-mode #dating-app:not([hidden]) { display: grid; }
+
+body.auth-mode .auth-layout {
+  grid-template-columns: minmax(0, min(66.667vh, calc(100vw - 600px))) minmax(420px, 600px);
+  justify-content: center;
+}
+
+body.auth-mode .auth-reference {
+  width: 100%;
+  height: 100vh;
+  object-fit: cover;
+  object-position: center;
+}
+
+body.auth-mode .auth-panel {
+  min-height: 100vh;
+  justify-content: safe center;
+}
+
+body.auth-mode .auth-footer {
+  margin-top: 24px;
+  padding-top: 0;
+}
+
+@media (max-width: 1220px) {
+  body.auth-mode .auth-layout { display: block; }
+  body.auth-mode .auth-story { min-height: 0; height: auto; }
+  body.auth-mode .auth-reference { width: 100%; height: auto; max-height: none; object-fit: cover; }
+  body.auth-mode .auth-panel { min-height: auto; justify-content: center; }
+}
+
+@media (max-width: 700px) {
+  body.auth-mode .auth-layout { min-height: 100svh; }
+  body.auth-mode .auth-reference { max-height: none; }
+  body.auth-mode .auth-panel { min-height: 66svh; }
+}
+
+/* Shared authentication surface. Keep this after AppLayout overrides. */
+body.auth-mode .auth-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 560px);
+  min-height: 100vh;
+  background: var(--page);
+}
+body.auth-mode .auth-story {
+  min-width: 0;
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--teal-100);
+}
+body.auth-mode .auth-reference {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  object-fit: cover;
+  object-position: center;
+}
+body.auth-mode .auth-panel {
+  width: min(100%, 420px);
+  min-height: 100vh;
+  justify-self: center;
+  justify-content: center;
+  padding: var(--space-8) var(--space-6);
+  background: var(--surface);
+}
+body.auth-mode .auth-heading {
+  display: grid;
+  gap: var(--space-2);
+}
+body.auth-mode .auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  margin-bottom: var(--space-6);
+  color: var(--ink);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -.05em;
+}
+body.auth-mode .auth-brand .brand-mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--coral);
+  box-shadow: var(--shadow-card);
+  font-size: 24px;
+}
+body.auth-mode .auth-heading h1 { margin: 0; }
+body.auth-mode .auth-subtitle { margin: 0; }
+body.auth-mode .form-stack { gap: var(--space-4); margin-top: var(--space-6); }
+body.auth-mode .field { gap: var(--space-2); }
+body.auth-mode .field input,
+body.auth-mode .field select,
+body.auth-mode .field textarea {
+  min-height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+body.auth-mode .field input:focus,
+body.auth-mode .field select:focus,
+body.auth-mode .field textarea:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 4px rgb(15 118 110 / 14%);
+}
+body.auth-mode .password-control {
+  position: relative;
+  display: block;
+}
+body.auth-mode .password-control input { padding-right: 60px; }
+body.auth-mode .password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  min-width: 38px;
+  padding: 4px;
+  border: 0;
+  color: var(--green);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+body.auth-mode .password-toggle:hover { color: var(--green-soft); }
+body.auth-mode .field.has-error input { border-color: var(--red); }
+body.auth-mode .field-error {
+  display: block;
+  margin-top: -2px;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 500;
+}
+body.auth-mode .submit-button {
+  min-height: 48px;
+  margin-top: var(--space-2);
+  border-radius: 999px;
+  background: var(--green);
+  box-shadow: var(--shadow-card);
+}
+body.auth-mode .submit-button.is-loading { cursor: wait; }
+body.auth-mode .submit-button.is-loading::after {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgb(255 255 255 / 40%);
+  border-top-color: #fff;
+  border-radius: 50%;
+  content: "";
+  animation: auth-spinner .7s linear infinite;
+}
+@keyframes auth-spinner { to { transform: rotate(360deg); } }
+body.auth-mode .auth-links {
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+body.auth-mode .auth-links a,
+body.auth-mode .auth-text-button {
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 700;
+}
+body.auth-mode .auth-legal { margin-top: var(--space-6); }
+body.auth-mode .auth-footer { margin-top: var(--space-8); padding-top: 0; }
+
+@media (max-width: 760px) {
+  body.auth-mode .auth-layout { display: block; min-height: 100svh; }
+  body.auth-mode .auth-story { display: none; }
+  body.auth-mode .auth-panel {
+    width: 100%;
+    min-height: 100svh;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-5);
+  }
+}
+
+/* Community rooms list and chat view. */
+#rooms-page .rooms-toolbar { display: grid; grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr) auto; align-items: end; gap: 14px; margin: 24px 0; }
+#rooms-page .rooms-toolbar .field { min-width: 0; }
+#rooms-page .rooms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 18px; }
+#rooms-page .room-card { min-width: 0; display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 16px; padding: 20px; border: 1px solid #f1dfe4; border-radius: 20px; background: #fff; box-shadow: 0 10px 30px rgb(46 28 43 / 6%); }
+#rooms-page .room-card-avatar { width: 64px; height: 64px; display: grid; place-items: center; overflow: hidden; border-radius: 18px; background: #fff0f3; font-size: 28px; }
+#rooms-page .room-card-avatar img { width: 100%; height: 100%; object-fit: cover; }
+#rooms-page .room-card-content { min-width: 0; }
+#rooms-page .room-card-title, #rooms-page .room-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#rooms-page .room-card-title h2 { min-width: 0; margin: 0; overflow-wrap: anywhere; font-size: 18px; }
+#rooms-page .room-topic { margin: 6px 0; color: #ef5677; font-size: 12px; font-weight: 700; }
+#rooms-page .room-card-content > p:not(.room-topic) { color: #737184; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+#rooms-page .room-card-footer { margin-top: 14px; color: #6b6878; font-size: 13px; }
+#rooms-page .room-card-footer .room-join-button { min-height: 40px; padding: 0 16px; }
+#room-detail { min-height: 55vh; display: grid; grid-template-rows: auto auto minmax(220px, 1fr) auto; gap: 14px; margin-top: 22px; padding: 18px; border: 1px solid #f1dfe4; border-radius: 20px; background: #fff; box-shadow: 0 10px 30px rgb(46 28 43 / 6%); }
+#room-detail[hidden] { display: none !important; }
+.room-detail-header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; }
+.room-detail-header h2, .room-detail-header p { margin: 0; overflow-wrap: anywhere; }
+.room-detail-header p { color: #777486; font-size: 13px; }
+.room-member-list { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid #f1e8eb; color: #777486; font-size: 12px; }
+.room-member-chip { padding: 5px 10px; border-radius: 999px; color: #5d5360; background: #fff1f4; }
+.room-messages { min-height: 220px; max-height: 52vh; display: flex; flex-direction: column; gap: 10px; overflow: auto; padding: 16px; border-radius: 14px; background: #fbf8f9; }
+.room-message { width: fit-content; max-width: min(78%, 620px); padding: 10px 13px; border: 1px solid #eee6e9; border-radius: 14px 14px 14px 4px; background: #fff; overflow-wrap: anywhere; }
+.room-message.is-mine { align-self: flex-end; border-color: #f7a4b4; border-radius: 14px 14px 4px 14px; background: #fff0f3; }
+.room-message strong { color: #df4d70; font-size: 11px; }
+.room-message p { margin: 3px 0 5px; white-space: pre-wrap; }
+.room-message time { color: #8b8792; font-size: 10px; }
+.room-detail .chat-composer { padding: 0; border: 0; }
+@media (max-width: 700px) {
+  #rooms-page .rooms-toolbar { grid-template-columns: minmax(0, 1fr); }
+  #rooms-page .room-card { grid-template-columns: 48px minmax(0, 1fr); gap: 12px; padding: 14px; }
+  #rooms-page .room-card-avatar { width: 48px; height: 48px; }
+  #room-detail { min-height: 60vh; padding: 12px; }
+  .room-detail-header { grid-template-columns: 1fr auto; }
+  .room-detail-header > div { grid-column: 1 / -1; grid-row: 1; }
+  .room-detail-header > button:first-child { grid-column: 1; grid-row: 2; }
+  .room-detail-header > button:last-child { grid-column: 2; grid-row: 2; }
+  .room-messages { max-height: 48vh; padding: 10px; }
+  .room-message { max-width: 90%; }
+}
+
+/* ===== Rooms & Calls ===== */
+.rooms-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; align-items: start; }
+.room-create-form { display: grid; gap: 10px; padding: 14px; border: 1px solid rgba(15, 118, 110, .25); border-radius: 16px; margin-bottom: 14px; }
+.room-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.room-actions button { border: 1px solid rgba(15, 118, 110, .4); background: rgba(15, 118, 110, .08); color: #0f766e; padding: 6px 12px; border-radius: 999px; cursor: pointer; font-size: 13px; }
+.room-actions button:hover { background: rgba(15, 118, 110, .16); }
+.call-start-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; padding: 14px; border: 1px solid rgba(15, 118, 110, .25); border-radius: 16px; margin-bottom: 14px; align-items: end; }
+.call-modal { position: fixed; inset: 0; background: rgba(4, 12, 14, .82); display: grid; place-items: center; z-index: 999; }
+.call-panel { background: #062e2b; color: #ecfdf5; border-radius: 24px; padding: 22px; width: min(640px, 92vw); display: grid; gap: 14px; justify-items: center; }
+.call-status { font-weight: 600; letter-spacing: .02em; }
+.call-video { width: 100%; max-height: 46vh; border-radius: 16px; background: #000; aspect-ratio: 16/10; object-fit: cover; }
+.call-local-video { width: 160px; aspect-ratio: 4/3; border-radius: 12px; background: #000; border: 2px solid rgba(255, 255, 255, .35); margin-top: -120px; margin-right: -40%; align-self: end; position: relative; z-index: 2; }
+.call-controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.call-controls button { border: 0; border-radius: 999px; padding: 10px 20px; font-weight: 600; cursor: pointer; background: #0f766e; color: #fff; }
+.call-controls #call-decline, .call-controls #call-end { background: #b91c1c; }
+.call-controls #call-answer { background: #15803d; }
+@media (max-width: 720px) { .rooms-layout { grid-template-columns: minmax(0, 1fr); } .call-local-video { margin-right: 0; } }

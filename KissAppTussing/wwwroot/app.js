@@ -6,12 +6,7 @@ const resetPasswordForm = document.querySelector("#reset-password-form");
 const appView = document.querySelector("#dating-app");
 const authMessage = document.querySelector("#auth-message");
 const authButton = document.querySelector("#auth-submit");
-<<<<<<< HEAD
-const appState = { token: localStorage.getItem("kiss.accessToken"), profile: null, interests: [], resetToken: null, connections: [], conversations: [], selectedConversationId: null, chatPoll: null, viewedProfile: null, rooms: [] };
-const roomState = { connection: null, activeRoomId: null };
-=======
-const appState = { token: localStorage.getItem("kiss.accessToken"), profile: null, interests: [], resetToken: null, connections: [], conversations: [], selectedConversationId: null, chatPoll: null, presenceTimer: null, notifications: [], notificationIds: new Set(), notificationsInitialized: false, pendingDateRecipientId: null, discoverProfiles: [], discoverPage: 1, discoverPageSize: 30, adminUsers: [], adminReports: [], canModerateReports: false, isOwner: false };
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
+const appState = { token: localStorage.getItem("kiss.accessToken"), profile: null, interests: [], resetToken: null, connections: [], conversations: [], selectedConversationId: null, chatPoll: null, presenceTimer: null, notifications: [], notificationIds: new Set(), notificationsInitialized: false, pendingDateRecipientId: null, discoverProfiles: [], discoverPage: 1, discoverPageSize: 30, adminUsers: [], adminReports: [], canModerateReports: false };
 const chatState = {
   contacts: [],
   activeUserId: null,
@@ -24,7 +19,16 @@ const chatState = {
 };
 let authMode = "login";
 
-const escapeHtml = (value = "") => String(value).normalize("NFC").replace(/[&<>"']/g, (character) => ({
+const roomState = { rooms: [], activeRoomId: null, chatConnection: null, friends: [] };
+const callState = { connection: null, activeCall: null, peerConnection: null, localStream: null, pendingOffer: null, role: null, remoteUserId: null, micEnabled: true, cameraEnabled: true, incoming: false };
+const rtcConfig = { iceServers: [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }] };
+
+function setBodyMode(isAuthenticated) {
+  document.body.classList.toggle("app-mode", Boolean(isAuthenticated));
+  document.body.classList.toggle("auth-mode", !isAuthenticated);
+}
+
+const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, (character) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 }[character]));
 
@@ -32,21 +36,8 @@ function photoUrl(value) {
   return typeof value === "string" && (value.startsWith("/uploads/") || value.startsWith("/demo-profiles/")) ? value : "";
 }
 
-function emptyState(title, description, actionLabel = "Khám phá hồ sơ ngay", actionPage = "discover") {
-  return `<div class="empty-state"><div class="empty-state-art" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><path d="M24 39S7 29.5 7 17.8C7 12.4 11 9 15.7 9c3.4 0 6.4 2 8.3 5 1.9-3 4.9-5 8.3-5C37 9 41 12.4 41 17.8 41 29.5 24 39 24 39Z" fill="currentColor" opacity=".15"/><path d="M24 36S9 27.8 9 17.9C9 13.2 12.2 10 16.3 10c3.4 0 6.1 2.1 7.7 5.2C25.6 12.1 28.3 10 31.7 10 35.8 10 39 13.2 39 17.9 39 27.8 24 36 24 36Z" stroke="currentColor" stroke-width="2"/></svg></div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(description)}</p><button class="empty-state-action" type="button" data-empty-page="${escapeHtml(actionPage)}">${escapeHtml(actionLabel)}</button></div>`;
-}
-
 function cleanProfileName(value = "") {
-  return String(value).normalize("NFC").replace(/^\[Mẫu\]\s*/u, "");
-}
-
-function lookingForLabel(value) {
-  switch (value) {
-    case "Friendship": return "Kết bạn";
-    case "Dating": return "Hẹn hò";
-    case "Relationship": return "Mối quan hệ nghiêm túc";
-    default: return "Chưa cập nhật";
-  }
+  return String(value).replace(/^\[M\u1eabu\]\s*/u, "");
 }
 
 function ageFrom(value) {
@@ -100,14 +91,8 @@ async function request(path, options = {}) {
   const contentType = response.headers.get("content-type") || "";
   const result = contentType.includes("json") ? await response.json() : await response.text();
   if (!response.ok) {
-<<<<<<< HEAD
-    const error = new Error(result?.detail || result?.title || "Không thể hoàn tất yêu cầu.");
-    error.status = response.status;
-    throw error;
-=======
     const validationError = Object.values(result?.errors || {}).flat()[0];
     throw new Error(result?.detail || validationError || result?.title || "Không thể hoàn tất yêu cầu.");
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
   }
   return result;
 }
@@ -226,21 +211,15 @@ async function submitAuth(event) {
 }
 
 async function enterWorkspace() {
+  setBodyMode(true);
   authView.hidden = true;
   appView.hidden = false;
   document.title = "Kiss | Khám phá";
   document.querySelector("#app-user-name").textContent = appState.profile.name;
-<<<<<<< HEAD
-  document.querySelector("#app-user-avatar").textContent = cleanProfileName(appState.profile.name).trim().charAt(0).toUpperCase() || "K";
-  await loadInterests();
-  fillProfile();
-  await Promise.all([loadDiscover(), loadMatches(), loadJourney(), loadAdminOverview(), loadRooms()]);
-=======
   startPresenceHeartbeat();
   await loadInterests();
   fillProfile();
   await Promise.all([loadDiscover(), loadLikedProfiles(), loadRejectedProfiles(), loadJourney(), loadAdminOverview(), loadNotifications()]);
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
   showPage("discover");
   const sharedPostId = new URLSearchParams(window.location.search).get("post");
   if (sharedPostId) {
@@ -251,13 +230,7 @@ async function enterWorkspace() {
 }
 
 function showPage(page) {
-<<<<<<< HEAD
-  page = page === "messages" ? "chat" : page;
-  for (const id of ["discover", "view-profile", "journey", "profile", "matches", "chat", "rooms", "connections", "messages", "admin"]) {
-=======
-  if (page === "events" && !appState.isOwner) page = "notifications";
-  for (const id of ["discover", "journey", "profile", "matches", "passed", "notifications", "dates", "events", "chat", "connections", "messages", "admin"]) {
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
+  for (const id of ["discover", "journey", "profile", "matches", "passed", "notifications", "dates", "events", "chat", "connections", "messages", "rooms", "calls", "admin"]) {
     document.getElementById(`${id}-page`).hidden = id !== page;
   }
   window.scrollTo(0, 0);
@@ -272,10 +245,11 @@ function showPage(page) {
   if (page === "connections") loadConnections();
   if (page === "chat") loadChatContacts();
   else stopChatPolling();
-  if (page === "rooms") loadRooms();
   if (page === "messages") startSocialPolling();
   else stopSocialPolling();
   if (page === "admin") loadAdminOverview();
+  if (page === "rooms") { loadRooms(); connectChatHub(); }
+  if (page === "calls") { loadCallPage(); ensureCallHub(); }
   if (page === "notifications") loadNotifications();
   if (page === "dates") loadDates();
   if (page === "events") loadCommunityEvents();
@@ -296,64 +270,12 @@ function stopPresenceHeartbeat() {
   appState.presenceTimer = null;
 }
 
-async function loadRooms() {
-  const form = document.querySelector("#rooms-filter-form");
-  const results = document.querySelector("#rooms-results");
-  const loading = document.querySelector("#rooms-loading");
-  const message = document.querySelector("#rooms-message");
-  if (!results) return;
-  loading.hidden = false;
-  message.hidden = true;
-  try {
-    const params = new URLSearchParams();
-    if (form.elements.search.value.trim()) params.set("search", form.elements.search.value.trim());
-    if (form.elements.topic.value.trim()) params.set("topic", form.elements.topic.value.trim());
-    appState.rooms = await request(`/rooms?${params}`);
-    results.innerHTML = appState.rooms.length ? appState.rooms.map(renderRoomCard).join("") : emptyState("Chưa có phòng nào", "Hãy tạo một không gian thật chill cho mọi người.", "Tạo phòng đầu tiên", "rooms");
-  } catch (error) {
-    message.textContent = error.message;
-    message.hidden = false;
-  } finally { loading.hidden = true; }
-}
-
-function renderRoomCard(room) {
-  const image = photoUrl(room.avatarUrl);
-  return `<article class="room-card"><div class="room-card-avatar">${image ? `<img src="${escapeHtml(image)}" alt="">` : "💬"}</div><div class="room-card-content"><div class="room-card-title"><h2>${escapeHtml(room.name)}</h2>${room.isPrivate ? "<span class=room-private>Riêng tư</span>" : ""}</div><p class="room-topic">${escapeHtml(room.topic || "Cùng trò chuyện")}</p><p>${escapeHtml(room.description || "Một góc nhỏ để gặp gỡ những người cùng vibe.")}</p><div class="room-card-footer"><span>👥 ${room.memberCount}/${room.maxMembers}</span><button class="submit-button room-join-button" type="button" data-room-join="${room.id}">Vào phòng</button></div></div></article>`;
-}
-
-async function joinRoom(roomId) {
-  try { await request(`/rooms/${roomId}/join`, { method: "POST", body: JSON.stringify({}) }); showPage("rooms"); }
-  catch (error) { const message = document.querySelector("#rooms-message"); message.textContent = error.message; message.hidden = false; }
-}
-
-function toggleRoomInvite() {
-  const checkbox = document.querySelector("#create-room-form [name=isPrivate]");
-  document.querySelector("#room-invite-field").hidden = !checkbox.checked;
-  document.querySelector("#create-room-form [name=inviteCode]").required = checkbox.checked;
-}
-
-async function submitCreateRoom(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const message = document.querySelector("#create-room-message");
-  try {
-    const data = Object.fromEntries(new FormData(form).entries());
-    data.isPrivate = form.elements.isPrivate.checked;
-    data.maxMembers = Number(data.maxMembers || 50);
-    await request("/rooms", { method: "POST", body: JSON.stringify(data) });
-    document.querySelector("#create-room-dialog").close();
-    form.reset(); toggleRoomInvite(); loadRooms();
-  } catch (error) { message.textContent = error.message; message.hidden = false; }
-}
-
 async function loadAdminOverview() {
   const nav = document.querySelector("#admin-nav");
   try {
     const access = await request("/admin/access");
     nav.hidden = false;
     const isOwner = Boolean(access.isOwner);
-    appState.isOwner = isOwner;
-    document.querySelector("#events-nav").hidden = !isOwner;
     appState.canModerateReports = Boolean(access.canModerate || isOwner);
     document.querySelector("#admin-stat-grid").hidden = !isOwner;
     document.querySelector("#admin-user-form").closest(".admin-users-panel").hidden = !isOwner;
@@ -380,10 +302,7 @@ async function loadAdminOverview() {
     appState.adminReports = reports;
     document.querySelector("#admin-message").hidden = true;
   } catch {
-    if (!appState.isOwner) {
-      document.querySelector("#events-nav").hidden = true;
-      nav.hidden = true;
-    }
+    nav.hidden = true;
   }
 }
 
@@ -428,18 +347,14 @@ async function sendSystemAnnouncement(event) {
 
 function renderAdminReports(reports) {
   const container = document.querySelector("#admin-reports");
-  const pendingCount = reports.filter((report) => report.status === "Pending").length;
-  document.querySelector("#admin-reports-heading").textContent = `Báo cáo cần xử lý (${pendingCount})`;
   if (!reports.length) {
     container.innerHTML = '<p class="empty-message">Chưa có báo cáo nào.</p>';
     return;
   }
-  const targetTypeLabels = { User: "Tài khoản", Post: "Bài viết", Comment: "Bình luận", Message: "Tin nhắn" };
   container.innerHTML = reports.map((report) => `
     <article class="admin-report-card ${report.status === "Pending" ? "is-pending" : ""}">
       <div class="admin-report-copy">
-        <div><strong>${escapeHtml(targetTypeLabels[report.targetType] || report.targetType)} · ${escapeHtml(report.status)}</strong><small>Người tố cáo: ${escapeHtml(report.reporterName)} · ${new Date(report.createdAt).toLocaleString("vi-VN")}</small></div>
-        ${report.targetName ? `<p><b>Người bị báo cáo:</b> ${escapeHtml(report.targetName)}${report.targetIsSuspended ? " · Tài khoản đã bị khóa" : ""}</p>` : ""}
+        <div><strong>${escapeHtml(report.targetType)} · ${escapeHtml(report.status)}</strong><small>Báo cáo bởi ${escapeHtml(report.reporterName)} · ${new Date(report.createdAt).toLocaleString("vi-VN")}</small></div>
         <p>${escapeHtml(report.reason)}</p>
         <blockquote>${escapeHtml(report.targetPreview || "Không còn nội dung để xem")}</blockquote>
         <small>Mã nội dung: ${escapeHtml(report.targetId)}</small>
@@ -626,15 +541,9 @@ async function loadConnections(searchTerm) {
     const outgoing = connections.filter((item) => item.status === "Pending" && item.requestedByMe);
     const friends = connections.filter((item) => item.status === "Accepted");
     document.querySelector("#connection-count").textContent = friends.length;
-<<<<<<< HEAD
-    document.querySelector("#incoming-requests").innerHTML = incoming.length ? incoming.map((item) => socialCard(item.user, `<div><button class="social-action primary" data-connection-accept="${item.id}" type="button">Chấp nhận</button> <button class="social-action danger" data-connection-decline="${item.id}" type="button">Từ chối</button></div>`)).join("") : emptyState("Chưa có lời mời", "Khi có người muốn kết nối, lời mời sẽ xuất hiện ở đây.");
-    document.querySelector("#outgoing-requests").innerHTML = outgoing.length ? outgoing.map((item) => socialCard(item.user, `<button class="social-action" data-connection-cancel="${item.id}" type="button">Đã gửi · Hủy</button>`)).join("") : emptyState("Chưa gửi lời mời", "Khám phá thêm hồ sơ để tìm người có cùng sở thích.");
-    document.querySelector("#friends-list").innerHTML = friends.length ? friends.map((item) => socialCard(item.user, `<button class="social-action danger" data-connection-disconnect="${item.id}" type="button">Hủy kết nối</button>`)).join("") : emptyState("Chưa có kết nối nào", "Khám phá những người cùng nhịp và bắt đầu một lời chào.");
-=======
     document.querySelector("#incoming-requests").innerHTML = incoming.length ? incoming.map((item) => socialCard(item.user, `<div><button class="social-action primary" data-connection-accept="${item.id}" type="button">Chấp nhận</button> <button class="social-action danger" data-connection-decline="${item.id}" type="button">Từ chối</button></div>`)).join("") : '<p class="empty-message">Bạn chưa có lời mời kết nối nào.</p>';
     document.querySelector("#outgoing-requests").innerHTML = outgoing.length ? outgoing.map((item) => socialCard(item.user, `<button class="social-action" data-connection-cancel="${item.id}" type="button">Chờ chấp nhận · Hủy</button>`)).join("") : '<p class="empty-message">Bạn chưa gửi lời mời nào.</p>';
     document.querySelector("#friends-list").innerHTML = friends.length ? friends.map((item) => socialCard(item.user, `<button class="social-action danger" data-connection-disconnect="${item.id}" type="button">Hủy kết nối</button>`)).join("") : '<p class="empty-message">Bạn chưa có bạn bè. Hãy tìm người để kết nối.</p>';
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
     if (users) {
       const statusByUser = new Map(connections.map((item) => [item.user.id, item]));
       const results = users.filter((user) => !connections.some((item) => item.user.id === user.id && ["Accepted", "Pending"].includes(item.status)));
@@ -682,7 +591,7 @@ async function loadConversations() {
     if (appState.selectedConversationId) await loadSocialMessages();
     else {
       document.querySelector("#social-chat-heading").innerHTML = '<div class="chat-empty">Chọn một người bạn để bắt đầu trò chuyện.</div>';
-      document.querySelector("#social-chat-messages").innerHTML = emptyState("Chưa có cuộc trò chuyện", "Chọn một người bạn để bắt đầu nhắn tin.");
+      document.querySelector("#social-chat-messages").innerHTML = '<p class="chat-empty">Tin nhắn của bạn sẽ xuất hiện ở đây.</p>';
       document.querySelector("#social-chat-form").hidden = true;
     }
   } catch (error) { notify(document.querySelector("#social-chat-message"), error.message); }
@@ -696,7 +605,7 @@ async function loadSocialMessages() {
   try {
     const messages = await request(`/conversations/${selected.id}/messages?limit=50`);
     const container = document.querySelector("#social-chat-messages");
-    container.innerHTML = messages.length ? messages.map((item) => `<article class="message-bubble ${item.senderId === appState.profile.id ? "is-mine" : ""}">${escapeHtml(item.content)}<time>${new Date(item.sentAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}${item.senderId === appState.profile.id ? (item.isRead ? " · Đã đọc" : " · Đã gửi") : ""}</time></article>`).join("") : emptyState("Bắt đầu bằng một lời chào", "Một tin nhắn ngắn có thể mở đầu cho câu chuyện thú vị.", "Viết lời chào");
+    container.innerHTML = messages.length ? messages.map((item) => `<article class="message-bubble ${item.senderId === appState.profile.id ? "is-mine" : ""}">${escapeHtml(item.content)}<time>${new Date(item.sentAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}${item.senderId === appState.profile.id ? (item.isRead ? " · Đã đọc" : " · Đã gửi") : ""}</time></article>`).join("") : '<p class="chat-empty">Chưa có tin nhắn. Hãy gửi lời chào đầu tiên!</p>';
     container.scrollTop = container.scrollHeight;
     const current = appState.conversations.find((item) => item.id === selected.id);
     if (current) current.unreadCount = 0;
@@ -761,14 +670,10 @@ async function loadDiscover() {
   const count = document.querySelector("#discover-count");
   const pagination = document.querySelector("#discover-pagination");
   message.hidden = true;
-<<<<<<< HEAD
-  results.innerHTML = Array.from({ length: 6 }, () => '<article class="skeleton-card" aria-hidden="true"><div class="skeleton-photo"></div><div class="skeleton-copy"></div><div class="skeleton-copy short"></div></article>').join("");
-=======
   count.textContent = "Đang tải hồ sơ...";
   pagination.replaceChildren();
   pagination.hidden = true;
   results.innerHTML = '<p class="empty-message">Đang tìm hồ sơ phù hợp...</p>';
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
   try {
     const profiles = await request(`/profiles/discover?${params.toString()}`);
     appState.discoverProfiles = profiles;
@@ -820,21 +725,13 @@ function renderDiscoverPage() {
 
 function renderProfiles(container, profiles, allowSwipe, allowChat = false, swipeStatusByProfile = null) {
   if (!profiles.length) {
-    container.innerHTML = emptyState("Chưa tìm thấy hồ sơ phù hợp", "Hãy thử điều chỉnh bộ lọc hoặc quay lại sau.", "Điều chỉnh bộ lọc", "discover");
+    container.innerHTML = '<p class="empty-message">Chưa tìm thấy hồ sơ phù hợp. Hãy thử điều chỉnh bộ lọc hoặc quay lại sau.</p>';
     return;
   }
   container.innerHTML = profiles.map((profile) => {
     const name = cleanProfileName(profile.name);
     const avatar = profile.photos?.find((photo) => photo.isAvatar) || profile.photos?.[0];
     const image = photoUrl(avatar?.url);
-<<<<<<< HEAD
-    const city = profile.city ? `<span class="person-card-city">${escapeHtml(profile.city)}</span>` : "";
-    return `<article class="person-card" data-profile-id="${profile.id}" tabindex="0">
-      ${image ? `<img class="person-photo" data-view-profile="${profile.id}" src="${escapeHtml(image)}" alt="Xem hồ sơ ${escapeHtml(name)}">` : `<div class="person-photo person-photo-placeholder" data-view-profile="${profile.id}" aria-hidden="true">${escapeHtml(name.trim().charAt(0).toUpperCase())}</div>`}
-      <div class="person-card-overlay"><div class="person-card-heading"><h2 data-view-profile="${profile.id}">${escapeHtml(name)}</h2><span>${ageFrom(profile.birthDate)}</span></div><div class="person-card-city-row">${city}</div></div>
-      <div class="person-card-body"><div class="person-meta"><span>${escapeHtml(lookingForLabel(profile.lookingFor))}</span></div><p class="person-bio">${escapeHtml(profile.bio || "Chưa có phần giới thiệu.")}</p><div class="person-interests">${(profile.interests || []).map((interest) => `<span class="interest-chip">${escapeHtml(interest.name)}</span>`).join("")}</div>
-      ${allowSwipe ? `<div class="person-card-actions"><button class="card-round-action pass" type="button" data-swipe="false" aria-label="Bỏ qua">Bỏ qua</button><button class="card-round-action like" type="button" data-swipe="true" aria-label="Kết đôi">Kết đôi ♥</button><button class="card-round-action info" type="button" data-view-profile="${profile.id}" aria-label="Xem hồ sơ">Xem hồ sơ</button></div>` : allowChat ? `<div class="person-card-actions person-card-chat-actions"><button class="person-card-chat-button" type="button" data-open-chat="${profile.id}" aria-label="Nhắn tin với ${escapeHtml(name)}"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M3 4.75A2.75 2.75 0 0 1 5.75 2h8.5A2.75 2.75 0 0 1 17 4.75v5.5A2.75 2.75 0 0 1 14.25 13H9l-4.5 3v-3.2A2.75 2.75 0 0 1 3 10.25z"/></svg>Nhắn tin</button></div>` : ""}</div></article>`;
-=======
     const swipeStatus = swipeStatusByProfile?.get(profile.id);
     const actions = allowSwipe
       ? `<div class="person-card-actions"><button type="button" data-swipe="false">Bỏ qua</button><button type="button" data-swipe="true">Thích ♡</button><button type="button" data-swipe="true" data-super-like="true">Super Like ★</button></div>`
@@ -857,99 +754,7 @@ function renderProfiles(container, profiles, allowSwipe, allowChat = false, swip
       <p class="person-bio">${escapeHtml(profile.bio || "Chưa có phần giới thiệu.")}</p>
       <div class="person-interests">${(profile.interests || []).map((interest) => `<span class="interest-chip">${escapeHtml(interest.name)}</span>`).join("")}</div>
       ${actions}<div class="person-safety-actions"><button type="button" data-report-user="${profile.id}" data-user-name="${escapeHtml(name)}">Báo cáo</button><button type="button" data-block-user="${profile.id}" data-user-name="${escapeHtml(name)}">Chặn</button></div></div></article>`;
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
   }).join("");
-}
-
-function viewProfileGallery(profile) {
-  const photos = (profile.photos || []).slice().sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0));
-  if (!photos.length) return `<div class="view-profile-photo view-profile-photo-placeholder" aria-hidden="true">${escapeHtml(cleanProfileName(profile.name).trim().charAt(0).toUpperCase())}</div>`;
-  return `<div class="view-profile-gallery">${photos.map((photo) => `<img class="view-profile-photo" src="${escapeHtml(photoUrl(photo.url))}" alt="Ảnh hồ sơ ${escapeHtml(profile.name)}">`).join("")}</div>`;
-}
-
-function renderViewedProfile(profile, connections, matches) {
-  const page = document.querySelector("#view-profile-content");
-  const name = cleanProfileName(profile.name);
-  const connection = connections.find((item) => item.user?.id === profile.id);
-  const matched = matches.some((item) => item.profile?.id === profile.id);
-  const connectionAction = connection?.status === "Accepted"
-    ? `<button class="profile-action secondary" type="button" disabled>Đã kết nối</button>`
-    : connection?.status === "Pending"
-      ? `<button class="profile-action secondary" type="button" disabled>Đã gửi lời mời</button>`
-      : `<button class="profile-action secondary" type="button" data-view-connect="${profile.id}">Kết nối</button>`;
-  const chatAction = matched
-    ? `<button class="profile-action" type="button" data-view-chat="${profile.id}">Nhắn tin</button>`
-    : `<button class="profile-action" type="button" disabled title="Chỉ nhắn tin sau khi đã kết đôi">Nhắn tin</button>`;
-  const interests = (profile.interests || []).map((interest) => `<span class="interest-chip">${escapeHtml(interest.name)}</span>`).join("");
-  page.innerHTML = `<button class="profile-back-button" type="button" data-view-back>← Quay lại</button>
-    <div class="view-profile-hero">${viewProfileGallery(profile)}<div class="view-profile-intro"><p class="eyebrow">HỒ SƠ CÔNG KHAI</p><h1>${escapeHtml(name)}, ${escapeHtml(ageFrom(profile.birthDate))}</h1><p class="view-profile-location">${escapeHtml([profile.city, profile.gender].filter(Boolean).join(" · ") || "Chưa cập nhật")}</p><div class="view-profile-actions"><button class="profile-action primary" type="button" data-view-swipe="${profile.id}">♡ Kết đôi</button>${connectionAction}${chatAction}</div></div></div>
-    <div class="view-profile-details"><section class="view-profile-card"><h2>Về ${escapeHtml(name)}</h2><p>${escapeHtml(profile.bio || "Chưa có phần giới thiệu.")}</p></section><section class="view-profile-card"><h2>Thông tin</h2><dl class="profile-facts">${profile.occupation ? `<div><dt>Công việc</dt><dd>${escapeHtml(profile.occupation)}</dd></div>` : ""}${profile.education ? `<div><dt>Học vấn</dt><dd>${escapeHtml(profile.education)}</dd></div>` : ""}<div><dt>Mục đích</dt><dd>${escapeHtml(lookingForLabel(profile.lookingFor))}</dd></div></dl></section>${interests ? `<section class="view-profile-card"><h2>Sở thích</h2><div class="person-interests">${interests}</div></section>` : ""}</div>`;
-}
-
-async function loadViewProfile(profileId) {
-  const loading = document.querySelector("#view-profile-loading");
-  const errorBox = document.querySelector("#view-profile-error");
-  const content = document.querySelector("#view-profile-content");
-  showPage("view-profile");
-  loading.hidden = false;
-  errorBox.hidden = true;
-  content.hidden = true;
-  try {
-    const profile = await request(`/profiles/${encodeURIComponent(profileId)}`);
-    let connections = [];
-    let matches = [];
-    try { [connections, matches] = await Promise.all([request("/connections"), request("/matches")]); } catch { }
-    appState.viewedProfile = profile.id;
-    renderViewedProfile(profile, connections, matches);
-    content.hidden = false;
-  } catch (error) {
-    errorBox.innerHTML = emptyState(error.status === 404 ? "Không tìm thấy hồ sơ" : "Không thể tải hồ sơ", error.status === 404 ? "Hồ sơ này có thể đã bị xóa hoặc không còn công khai." : "Kiểm tra kết nối mạng rồi thử lại.", "Quay lại Khám phá", "discover");
-    errorBox.hidden = false;
-  } finally {
-    loading.hidden = true;
-  }
-}
-
-function openProfileFromCard(event) {
-  const card = event.target.closest("[data-profile-id]");
-  const trigger = event.target.closest("[data-view-profile]");
-  if (!card) return;
-  if (trigger) {
-    loadViewProfile(trigger.dataset.viewProfile || card.dataset.profileId);
-    return;
-  }
-  if (event.target.closest("button, a, input, select, textarea")) return;
-  const profileId = card.dataset.profileId;
-  if (profileId) loadViewProfile(profileId);
-}
-
-async function handleViewedProfileAction(event) {
-  const button = event.target.closest("[data-view-swipe], [data-view-connect], [data-view-chat], [data-view-back]");
-  if (!button) return;
-  if (button.hasAttribute("data-view-back")) {
-    showPage("discover");
-    return;
-  }
-  if (button.hasAttribute("data-view-chat")) {
-    chatState.pendingUserId = button.dataset.viewChat;
-    showPage("chat");
-    return;
-  }
-  button.disabled = true;
-  try {
-    if (button.hasAttribute("data-view-swipe")) {
-      const result = await request("/swipes", { method: "POST", body: JSON.stringify({ targetUserId: button.dataset.viewSwipe, isLike: true }) });
-      button.textContent = result.isMatch ? "♥ Đã kết đôi" : "♥ Đã thích";
-      if (result.isMatch) await loadMatches();
-    } else {
-      await request(`/connections/${button.dataset.viewConnect}`, { method: "POST" });
-      button.textContent = "Đã gửi lời mời";
-    }
-  } catch (error) {
-    button.disabled = false;
-    notify(document.querySelector("#view-profile-error"), error.message);
-    document.querySelector("#view-profile-error").hidden = false;
-  }
 }
 
 async function loadProfile() {
@@ -1025,7 +830,7 @@ async function loadNotifications() {
 
 function renderNotifications() {
   const list = document.querySelector("#notification-list");
-  const typeLabels = { Like: "Lượt thích", SuperLike: "Super Like", Match: "Kết đôi", Chat: "Tin nhắn", Comment: "Bình luận", Date: "Lịch hẹn", Event: "Sự kiện", System: "Hệ thống" };
+  const typeLabels = { Like: "Lượt thích", SuperLike: "Super Like", Match: "Kết đôi", Chat: "Tin nhắn", Comment: "Bình luận", Date: "Lịch hẹn", System: "Hệ thống" };
   list.innerHTML = appState.notifications.length ? appState.notifications.map((item) => `
     <article class="notification-card ${item.readAt ? "is-read" : "is-unread"}">
       <div><span class="notification-type">${escapeHtml(typeLabels[item.type] || item.type)}</span><h2>${escapeHtml(item.title)}</h2><p>${escapeHtml(item.body)}</p><time>${new Date(item.createdAt).toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })}</time></div>
@@ -1066,25 +871,14 @@ async function enableBrowserNotifications() {
 
 async function loadDates() {
   const list = document.querySelector("#date-list");
-  const invitationForm = document.querySelector("#date-invitation-form");
-  const recipientSelect = invitationForm.elements.recipientUserId;
-  const isAdmin = appState.isOwner;
-  invitationForm.closest(".date-planning-grid").classList.toggle("is-admin", isAdmin);
-  invitationForm.hidden = isAdmin;
-  document.querySelector("#dates-description").textContent = isAdmin
-    ? "Toàn bộ lịch hẹn giữa các thành viên trong hệ thống."
-    : "Gửi lời mời đến người bạn đã kết đôi, chọn địa điểm và thời gian phù hợp.";
-  document.querySelector("#dates-list-heading").textContent = isAdmin ? "Tất cả lịch hẹn" : "Lời mời và lịch sắp tới";
+  const recipientSelect = document.querySelector("#date-invitation-form").elements.recipientUserId;
   try {
-    const dates = isAdmin ? await request("/admin/dates") : await request("/dates");
-    if (!isAdmin) {
-      const matches = await request("/matches");
-      recipientSelect.innerHTML = '<option value="">Chọn người</option>' + matches.map((match) =>
-        `<option value="${escapeHtml(match.profile.id)}">${escapeHtml(match.profile.name)}</option>`).join("");
-      if (appState.pendingDateRecipientId && matches.some((match) => match.profile.id === appState.pendingDateRecipientId)) {
-        recipientSelect.value = appState.pendingDateRecipientId;
-        appState.pendingDateRecipientId = null;
-      }
+    const [dates, matches] = await Promise.all([request("/dates"), request("/matches")]);
+    recipientSelect.innerHTML = '<option value="">Chọn người</option>' + matches.map((match) =>
+      `<option value="${escapeHtml(match.profile.id)}">${escapeHtml(match.profile.name)}</option>`).join("");
+    if (appState.pendingDateRecipientId && matches.some((match) => match.profile.id === appState.pendingDateRecipientId)) {
+      recipientSelect.value = appState.pendingDateRecipientId;
+      appState.pendingDateRecipientId = null;
     }
     appState.dates = dates;
     const statusLabels = { Pending: "Chờ phản hồi", Accepted: "Đã xác nhận", Declined: "Đã từ chối", Cancelled: "Đã hủy" };
@@ -1093,11 +887,10 @@ async function loadDates() {
       const isPast = startsAt <= new Date();
       const safeUrl = (() => { try { const url = new URL(date.venueUrl); return ["http:", "https:"].includes(url.protocol) ? url.href : ""; } catch { return ""; } })();
       const reviews = date.reviews.map((review) => `<div class="date-review"><strong>${escapeHtml(review.reviewerName)}</strong><span>${"★".repeat(review.rating)}${"☆".repeat(5 - review.rating)}</span><p>${escapeHtml(review.comment || "Không có nhận xét.")}</p></div>`).join("");
-      const actions = isAdmin ? "" : `${!date.isOrganizer && date.status === "Pending" ? `<button type="button" data-date-action="accept" data-date-id="${date.id}">Đồng ý</button><button type="button" data-date-action="decline" data-date-id="${date.id}">Từ chối</button>` : ""}${["Pending", "Accepted"].includes(date.status) ? `<button type="button" class="cancel-date-button" data-cancel-date="${date.id}">Hủy lịch</button>` : ""}`;
-      const reviewForm = !isAdmin && date.status === "Accepted" && isPast && !date.hasReviewed ? `<form class="date-review-form" data-date-review="${date.id}"><label class="field"><span>Đánh giá buổi hẹn</span><select name="rating"><option value="5">5 sao</option><option value="4">4 sao</option><option value="3">3 sao</option><option value="2">2 sao</option><option value="1">1 sao</option></select></label><label class="field"><span>Nhận xét</span><input name="comment" maxlength="500" placeholder="Chia sẻ cảm nhận"></label><button class="quiet-button" type="submit">Gửi đánh giá</button></form>` : "";
-      const people = isAdmin ? `${escapeHtml(date.organizerName)} → ${escapeHtml(date.recipientName)}` : escapeHtml(date.otherUserName);
-      return `<article class="date-card"><header><div><span class="date-status">${escapeHtml(statusLabels[date.status] || date.status)}</span><h3>${escapeHtml(date.venueName)}</h3></div><strong>${people}</strong></header><p class="date-time">${startsAt.toLocaleString("vi-VN", { dateStyle: "full", timeStyle: "short" })}</p>${date.venueAddress ? `<p>${escapeHtml(date.venueAddress)}</p>` : ""}${safeUrl ? `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noreferrer">Mở địa điểm</a>` : ""}${date.message ? `<p class="date-message">${escapeHtml(date.message)}</p>` : ""}<div class="date-card-actions">${actions}</div>${reviewForm}<div class="date-reviews">${reviews}</div></article>`;
-    }).join("") : isAdmin ? '<p class="empty-message">Chưa có lịch hẹn nào trong hệ thống.</p>' : '<p class="empty-message">Chưa có lời mời hẹn hò. Bạn có thể gửi lời mời cho người đã kết đôi với mình.</p>';
+      const actions = `${!date.isOrganizer && date.status === "Pending" ? `<button type="button" data-date-action="accept" data-date-id="${date.id}">Đồng ý</button><button type="button" data-date-action="decline" data-date-id="${date.id}">Từ chối</button>` : ""}${["Pending", "Accepted"].includes(date.status) ? `<button type="button" class="cancel-date-button" data-cancel-date="${date.id}">Hủy lịch</button>` : ""}`;
+      const reviewForm = date.status === "Accepted" && isPast && !date.hasReviewed ? `<form class="date-review-form" data-date-review="${date.id}"><label class="field"><span>Đánh giá buổi hẹn</span><select name="rating"><option value="5">5 sao</option><option value="4">4 sao</option><option value="3">3 sao</option><option value="2">2 sao</option><option value="1">1 sao</option></select></label><label class="field"><span>Nhận xét</span><input name="comment" maxlength="500" placeholder="Chia sẻ cảm nhận"></label><button class="quiet-button" type="submit">Gửi đánh giá</button></form>` : "";
+      return `<article class="date-card"><header><div><span class="date-status">${escapeHtml(statusLabels[date.status] || date.status)}</span><h3>${escapeHtml(date.venueName)}</h3></div><strong>${escapeHtml(date.otherUserName)}</strong></header><p class="date-time">${startsAt.toLocaleString("vi-VN", { dateStyle: "full", timeStyle: "short" })}</p>${date.venueAddress ? `<p>${escapeHtml(date.venueAddress)}</p>` : ""}${safeUrl ? `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noreferrer">Mở địa điểm</a>` : ""}${date.message ? `<p class="date-message">${escapeHtml(date.message)}</p>` : ""}<div class="date-card-actions">${actions}</div>${reviewForm}<div class="date-reviews">${reviews}</div></article>`;
+    }).join("") : '<p class="empty-message">Chưa có lời mời hẹn hò. Bạn có thể gửi lời mời cho người đã kết đôi với mình.</p>';
   } catch (error) {
     notify(list, `Không tải được lịch hẹn: ${error.message}`);
   }
@@ -1159,14 +952,14 @@ async function submitDateReview(event) {
 async function loadCommunityEvents() {
   const container = document.querySelector("#community-event-list");
   try {
-    const events = await request("/events?limit=100");
+    const events = await request("/events?limit=50");
     container.innerHTML = events.length ? events.map((item) => `
       <article class="community-event-card">
         <header><div><span class="date-status">${new Date(item.startsAt).toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })}</span><h3>${escapeHtml(item.name)}</h3></div><strong>${item.attendeeCount} người tham gia</strong></header>
         <p><b>Địa điểm:</b> ${escapeHtml(item.venueName)}</p>
         ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ""}
         <small>Tạo bởi ${escapeHtml(item.creatorName)}</small>
-        <div class="date-card-actions"><button class="cancel-date-button" type="button" data-delete-community-event="${item.id}">Xóa sự kiện</button></div>
+        <div class="date-card-actions">${item.isMine ? `<button class="cancel-date-button" type="button" data-delete-community-event="${item.id}">Xóa sự kiện</button>` : `<button type="button" data-toggle-event-attendance="${item.id}" data-attending="${item.isAttending}">${item.isAttending ? "Rời sự kiện" : "Tham gia"}</button>`}</div>
       </article>`).join("") : '<p class="empty-message">Chưa có sự kiện sắp tới. Bạn có thể tạo sự kiện đầu tiên.</p>';
   } catch (error) {
     container.innerHTML = `<p class="empty-message">${escapeHtml(error.message)}</p>`;
@@ -1481,13 +1274,6 @@ async function swipe(event) {
   const buttons = card.querySelectorAll("button");
   buttons.forEach((item) => { item.disabled = true; });
   try {
-    if (button.dataset.swipe === "true") {
-      const burst = document.createElement("span");
-      burst.className = "heart-burst";
-      burst.textContent = "♥";
-      card.append(burst);
-      setTimeout(() => burst.remove(), 850);
-    }
     const result = await request("/swipes", {
       method: "POST",
       body: JSON.stringify({ targetUserId: card.dataset.profileId, isLike: button.dataset.swipe === "true", isSuperLike: button.dataset.superLike === "true" })
@@ -1584,29 +1370,9 @@ async function loadChatContacts() {
   const list = document.querySelector("#chat-contact-list");
   const status = document.querySelector("#chat-status");
   try {
-    const [chatContacts, conversations] = await Promise.all([
-      request("/chat/contacts"),
-      request("/conversations").catch(() => [])
-    ]);
-    const contactsById = new Map(chatContacts.map((contact) => [contact.id, contact]));
-    const friendContacts = conversations.map((conversation) => {
-      const friend = conversation.user;
-      const existing = contactsById.get(friend.id);
-      return {
-        ...(existing || {}),
-        id: friend.id,
-        name: friend.name || existing?.name || "Bạn bè",
-        bio: friend.bio || existing?.bio || "",
-        city: friend.city || existing?.city || "",
-        photos: existing?.photos?.length ? existing.photos : friend.avatarUrl ? [{ url: friend.avatarUrl, isAvatar: true }] : [],
-        interests: existing?.interests || [],
-        isOnline: existing?.isOnline || false,
-        socialConversationId: conversation.id
-      };
-    });
-    const friendIds = new Set(friendContacts.map((contact) => contact.id));
-    chatState.contacts = [...friendContacts, ...chatContacts.filter((contact) => !friendIds.has(contact.id))];
-    document.querySelector("#chat-contact-count").textContent = chatState.contacts.length;
+    const contacts = await request("/chat/contacts");
+    chatState.contacts = contacts;
+    document.querySelector("#chat-contact-count").textContent = contacts.length;
 
     if (!chatState.contacts.length) {
       list.innerHTML = '<p class="chat-contact-empty">Bạn chưa có cuộc trò chuyện. Hãy thích một hồ sơ để bắt đầu nhắn tin.</p>';
@@ -1657,7 +1423,6 @@ async function selectChatContact(userId) {
   }
   chatState.activeUserId = userId;
   document.querySelector("#chat-empty").hidden = true;
-  document.querySelector("#chat-layout")?.classList.add("has-active-chat");
   document.querySelector("#chat-thread-header").hidden = false;
   document.querySelector("#chat-form").hidden = false;
   const name = cleanProfileName(profile.name);
@@ -1682,7 +1447,6 @@ function clearActiveChat() {
   chatState.lastMessageKey = null;
   clearChatMediaUrls();
   document.querySelector("#chat-empty").hidden = false;
-  document.querySelector("#chat-layout")?.classList.remove("has-active-chat");
   document.querySelector("#chat-thread-header").hidden = true;
   document.querySelector("#chat-form").hidden = true;
   document.querySelector("#chat-form").reset();
@@ -1736,16 +1500,7 @@ async function loadChatMessages(scrollToLatest = false) {
   const conversationId = chatState.activeUserId;
   const wasNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
   try {
-    const contact = chatState.contacts.find((item) => item.id === conversationId);
-    const messages = contact?.socialConversationId
-      ? (await request(`/conversations/${contact.socialConversationId}/messages?limit=100`)).map((message) => ({
-        ...message,
-        isMine: message.senderId === appState.profile?.id,
-        isRevoked: false,
-        canRecall: false,
-        isSocialConversation: true
-      }))
-      : await request(`/chat/${conversationId}/messages`);
+    const messages = await request(`/chat/${conversationId}/messages`);
     if (chatState.activeUserId !== conversationId) return;
     const key = messages.map((message) => `${message.id}:${message.content}:${message.isRead}:${message.isRevoked}`).join("|");
     if (key === chatState.lastMessageKey) return;
@@ -1779,7 +1534,7 @@ function renderChatMessages(scrollToLatest) {
     const time = new Date(message.sentAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
     return `<article class="chat-message-row ${message.isMine ? "is-mine" : ""}" data-chat-message="${message.id}">
       <div class="chat-message-bubble ${message.isRevoked ? "is-revoked" : ""}">${message.content ? `<p>${escapeHtml(message.content)}</p>` : ""}${mediaMarkup}<time>${time}${message.isMine ? (message.isRead ? " · Đã xem" : " · Đã gửi") : ""}</time>
-      ${message.isSocialConversation ? "" : `<div class="chat-message-actions">${message.canRecall ? `<button type="button" data-recall-message="${message.id}">Thu hồi</button>` : ""}<button type="button" data-hide-message="${message.id}">Xóa ở phía tôi</button>${!message.isMine ? `<button type="button" data-report-message="${message.id}">Báo cáo</button>` : ""}</div>`}</div>
+      <div class="chat-message-actions">${message.canRecall ? `<button type="button" data-recall-message="${message.id}">Thu hồi</button>` : ""}<button type="button" data-hide-message="${message.id}">Xóa ở phía tôi</button>${!message.isMine ? `<button type="button" data-report-message="${message.id}">Báo cáo</button>` : ""}</div></div>
     </article>`;
   }).join("");
   if (scrollToLatest) container.scrollTop = container.scrollHeight;
@@ -1871,25 +1626,13 @@ async function submitChatMessage(event) {
 
   const form = event.currentTarget;
   const button = form.querySelector("[type=submit]");
-  const contact = chatState.contacts.find((item) => item.id === chatState.activeUserId);
-  if (contact?.socialConversationId && file) {
-    notify(document.querySelector("#chat-status"), "Tin nhắn với bạn bè hiện chỉ hỗ trợ văn bản.");
-    return;
-  }
   const formData = new FormData();
   formData.set("content", content);
   if (file) formData.set("media", file);
   button.disabled = true;
   document.querySelector("#chat-status").hidden = true;
   try {
-    if (contact?.socialConversationId) {
-      await request(`/conversations/${contact.socialConversationId}/messages`, {
-        method: "POST",
-        body: JSON.stringify({ content })
-      });
-    } else {
-      await request(`/chat/${chatState.activeUserId}/messages`, { method: "POST", body: formData });
-    }
+    await request(`/chat/${chatState.activeUserId}/messages`, { method: "POST", body: formData });
     input.value = "";
     fileInput.value = "";
     updateChatFileName();
@@ -1952,7 +1695,6 @@ async function submitJourneyPost(event) {
       method: "POST",
       body: formData
     });
-document.querySelector("#chat-back-to-list").addEventListener("click", () => document.querySelector("#chat-layout")?.classList.remove("has-active-chat"));
     form.reset();
     clearJourneyPreview();
     await loadJourney();
@@ -1968,7 +1710,7 @@ async function loadJourney() {
   try {
     const posts = await request("/journey?limit=20");
     if (!posts.length) {
-      feed.innerHTML = emptyState("Hành trình đang chờ bạn", "Chia sẻ một khoảnh khắc nhỏ để bắt đầu câu chuyện.", "Đăng bài đầu tiên", "journey");
+      feed.innerHTML = '<p class="empty-message">Chưa có bài viết nào trong hành trình. Hãy chia sẻ điều đầu tiên của bạn.</p>';
       return;
     }
 
@@ -2172,7 +1914,332 @@ async function deleteJourneyPost(event) {
   }
 }
 
+// ===================== ROOMS (group chat) =====================
+function connectChatHub() {
+  if (roomState.chatConnection) return;
+  if (typeof signalR === "undefined") return;
+  roomState.chatConnection = new signalR.HubConnectionBuilder()
+    .withUrl("/hubs/chat", { accessTokenFactory: () => appState.token })
+    .withAutomaticReconnect()
+    .build();
+  roomState.chatConnection.on("PresenceChanged", (payload) => {
+    if (payload?.userId) {
+      const room = roomState.rooms.find((item) => item.id === roomState.activeRoomId);
+      if (room) { const member = room.members.find((m) => m.userId === payload.userId); if (member) member.isOnline = payload.isOnline; renderRoomHeading(); }
+    }
+  });
+  roomState.chatConnection.on("RoomMessage", async (message) => {
+    if (message.roomId !== roomState.activeRoomId) { await loadRooms(); return; }
+    const container = document.querySelector("#room-chat-messages");
+    const wasNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+    container.insertAdjacentHTML("beforeend", roomMessageMarkup(message));
+    if (wasNearBottom) container.scrollTop = container.scrollHeight;
+  });
+  roomState.chatConnection.start().catch(() => {});
+}
+
+function roomMessageMarkup(message) {
+  const mine = message.senderId === appState.profile.id;
+  const time = new Date(message.sentAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  return `<article class="chat-message-row ${mine ? "is-mine" : ""}"><div class="chat-message-bubble">${mine ? "" : `<strong>${escapeHtml(message.senderName)}</strong>`}<p>${escapeHtml(message.content)}</p><time>${time}</time></div></article>`;
+}
+
+async function loadRooms() {
+  const list = document.querySelector("#room-list");
+  try {
+    const [rooms, connections] = await Promise.all([request("/rooms"), request("/connections?status=Accepted")]);
+    roomState.rooms = rooms;
+    roomState.friends = connections.filter((item) => item.status === "Accepted").map((item) => item.user);
+    const select = document.querySelector("#room-member-select");
+    select.innerHTML = roomState.friends.map((friend) => `<option value="${friend.id}">${escapeHtml(friend.name)}</option>`).join("") || '<option value="">Chưa có bạn bè</option>';
+    list.innerHTML = rooms.length ? rooms.map((room) => `<button class="conversation-item ${room.id === roomState.activeRoomId ? "is-active" : ""}" data-open-room="${room.id}" type="button"><span class="conversation-copy"><strong>${escapeHtml(room.name)}</strong><span>${escapeHtml(room.members.length + " thành viên · " + (room.lastMessage || "Chưa có tin nhắn"))}</span></span></button>`).join("") : '<p class="empty-message">Bạn chưa có phòng chat nào.</p>';
+    if (!roomState.activeRoomId && rooms.length) await selectRoom(rooms[0].id);
+    else if (!rooms.length) selectRoom(null);
+  } catch (error) {
+    list.innerHTML = `<p class="empty-message">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+async function selectRoom(roomId) {
+  roomState.activeRoomId = roomId;
+  const heading = document.querySelector("#room-chat-heading");
+  const container = document.querySelector("#room-chat-messages");
+  const form = document.querySelector("#room-chat-form");
+  document.querySelectorAll("[data-open-room]").forEach((button) => button.classList.toggle("is-active", button.dataset.openRoom === roomId));
+  if (!roomId) {
+    heading.innerHTML = '<div class="empty-message">Chọn một phòng để bắt đầu trò chuyện.</div>';
+    container.replaceChildren();
+    form.hidden = true;
+    return;
+  }
+  try {
+    const [room, messages] = await Promise.all([request(`/rooms/${roomId}`), request(`/rooms/${roomId}/messages`)]);
+    renderRoomHeading(room);
+    form.hidden = false;
+    container.innerHTML = messages.length ? messages.map(roomMessageMarkup).join("") : '<p class="chat-no-messages">Chưa có tin nhắn trong phòng. Hãy mở đầu nhé!</p>';
+    container.scrollTop = container.scrollHeight;
+    if (roomState.chatConnection) await roomState.chatConnection.invoke("JoinRoom", roomId).catch(() => {});
+  } catch (error) {
+    notify(document.querySelector("#room-chat-message"), error.message);
+  }
+}
+
+function renderRoomHeading(room) {
+  const data = room || roomState.rooms.find((item) => item.id === roomState.activeRoomId);
+  if (!data) return;
+  document.querySelector("#room-chat-heading").innerHTML = `
+    <div><strong>${escapeHtml(data.name)}</strong><span>${data.members.map((member) => `${escapeHtml(member.name)}${member.isOnline ? " · 🟢" : ""}`).join(", ")}</span></div>
+    <div class="room-actions">
+      <button id="room-call-button" type="button" data-room-call="${data.id}">📞 Gọi nhóm</button>
+      <button id="room-invite-button" type="button" data-room-invite="${data.id}">＋ Mời bạn</button>
+      ${data.isOwner ? `<button class="quiet-button" type="button" data-room-leave="${data.id}">Rời phòng</button>` : ""}
+    </div>`;
+}
+
+async function submitCreateRoom(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = new FormData(form);
+  const memberIds = Array.from(form.elements.memberUserIds.selectedOptions).map((option) => option.value);
+  const message = document.querySelector("#room-form-message");
+  try {
+    await request("/rooms", { method: "POST", body: JSON.stringify({ name: values.get("name").trim(), memberUserIds: memberIds }) });
+    form.reset();
+    roomState.activeRoomId = null;
+    await loadRooms();
+    notify(message, "Đã tạo phòng chat mới.", true);
+  } catch (error) { notify(message, error.message); }
+}
+
+async function submitRoomMessage(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const content = form.elements.content.value.trim();
+  if (!content || !roomState.activeRoomId) return;
+  try {
+    await request(`/rooms/${roomState.activeRoomId}/messages`, { method: "POST", body: JSON.stringify({ content }) });
+    form.elements.content.value = "";
+  } catch (error) { notify(document.querySelector("#room-chat-message"), error.message); }
+}
+
+async function manageRoomActions(event) {
+  const invite = event.target.closest("[data-room-invite]");
+  if (invite) {
+    const candidate = window.prompt("Nhập tên bạn bè muốn mời:");
+    if (!candidate) return;
+    const friend = roomState.friends.find((item) => item.name.toLowerCase() === candidate.trim().toLowerCase());
+    if (!friend) { notify(document.querySelector("#room-chat-message"), "Không tìm thấy bạn bè với tên này."); return; }
+    try {
+      await request(`/rooms/${invite.dataset.roomInvite}/invite/${friend.id}`, { method: "POST" });
+      await loadRooms();
+      notify(document.querySelector("#room-chat-message"), `Đã mời ${friend.name} vào phòng.`, true);
+    } catch (error) { notify(document.querySelector("#room-chat-message"), error.message); }
+    return;
+  }
+  const leave = event.target.closest("[data-room-leave]");
+  if (leave) {
+    if (!window.confirm("Rời phòng chat này?")) return;
+    try { await request(`/rooms/${leave.dataset.roomLeave}/leave`, { method: "POST" }); roomState.activeRoomId = null; await loadRooms(); }
+    catch (error) { notify(document.querySelector("#room-chat-message"), error.message); }
+    return;
+  }
+  const call = event.target.closest("[data-room-call]");
+  if (call) startCall({ callType: "Video", roomId: call.dataset.roomCall });
+}
+
+// ===================== CALLS (WebRTC) =====================
+function ensureCallHub() {
+  if (callState.connection || typeof signalR === "undefined") return;
+  callState.connection = new signalR.HubConnectionBuilder()
+    .withUrl("/hubs/call", { accessTokenFactory: () => appState.token })
+    .withAutomaticReconnect()
+    .build();
+  callState.connection.on("IncomingCall", onIncomingCall);
+  callState.connection.on("CallAnswered", onCallAnswered);
+  callState.connection.on("CallDeclined", onCallDeclined);
+  callState.connection.on("CallEnded", onCallEnded);
+  callState.connection.on("ReceiveOffer", onReceiveOffer);
+  callState.connection.on("ReceiveAnswer", onReceiveAnswer);
+  callState.connection.on("ReceiveIceCandidate", onReceiveIceCandidate);
+  callState.connection.start().catch(() => {});
+}
+
+function showCallModal(status, options = {}) {
+  document.querySelector("#call-modal").hidden = false;
+  document.querySelector("#call-status").textContent = status;
+  document.querySelector("#call-answer").hidden = !options.showAnswer;
+  document.querySelector("#call-decline").hidden = !options.showDecline;
+  document.querySelector("#call-end").hidden = !options.showEnd;
+}
+
+function hideCallModal() {
+  document.querySelector("#call-modal").hidden = true;
+  document.querySelector("#call-local-video").srcObject = null;
+  document.querySelector("#call-remote-video").srcObject = null;
+}
+
+async function startCall(payload) {
+  ensureCallHub();
+  try {
+    const call = await request("/calls", { method: "POST", body: JSON.stringify(payload) });
+    callState.activeCall = call;
+    callState.role = "caller";
+    callState.remoteUserId = call.recipientUserId || null;
+    showCallModal(`Đang gọi ${callTypeLabel(call.callType)}...`, { showEnd: true });
+    await prepareLocalMedia(call.callType);
+    if (callState.peerConnection) callState.peerConnection.close();
+    callState.peerConnection = new RTCPeerConnection(rtcConfig);
+    callState.localStream.getTracks().forEach((track) => callState.peerConnection.addTrack(track, callState.localStream));
+    callState.peerConnection.ontrack = (event) => { document.querySelector("#call-remote-video").srcObject = event.streams[0]; };
+    callState.peerConnection.onicecandidate = (event) => {
+      if (event.candidate && callState.remoteUserId)
+        callState.connection.invoke("SendIceCandidate", call.id, callState.remoteUserId, event.candidate.candidate, event.candidate.sdpMid, event.candidate.sdpMLineIndex).catch(() => {});
+    };
+    const offer = await callState.peerConnection.createOffer();
+    await callState.peerConnection.setLocalDescription(offer);
+    callState.pendingOffer = offer.sdp;
+    await loadCallHistory();
+  } catch (error) { notify(document.querySelector("#call-message"), error.message); }
+}
+
+function callTypeLabel(type) { return type === "Video" ? "video" : "thoại"; }
+
+async function prepareLocalMedia(callType) {
+  if (callState.localStream) return;
+  try {
+    const constraints = callType === "Video" ? { audio: true, video: true } : { audio: true };
+    callState.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    if (callType === "Video") document.querySelector("#call-local-video").srcObject = callState.localStream;
+  } catch (error) {
+    notify(document.querySelector("#call-message"), "Không truy cập được micro/camera: " + error.message);
+  }
+}
+
+async function onIncomingCall(payload) {
+  if (callState.activeCall) return;
+  callState.activeCall = { id: payload.callId, callType: payload.callType, callerUserId: payload.callerUserId, callerName: payload.callerName };
+  callState.remoteUserId = payload.callerUserId;
+  callState.role = "callee";
+  callState.incoming = true;
+  showCallModal(`Cuộc gọi ${callTypeLabel(payload.callType)} đến...`, { showAnswer: true, showDecline: true });
+}
+
+async function answerCall() {
+  if (!callState.activeCall) return;
+  await prepareLocalMedia(callState.activeCall.callType);
+  callState.peerConnection = new RTCPeerConnection(rtcConfig);
+  callState.localStream.getTracks().forEach((track) => callState.peerConnection.addTrack(track, callState.localStream));
+  callState.peerConnection.ontrack = (event) => { document.querySelector("#call-remote-video").srcObject = event.streams[0]; };
+  callState.peerConnection.onicecandidate = (event) => {
+    if (event.candidate && callState.remoteUserId)
+      callState.connection.invoke("SendIceCandidate", callState.activeCall.id, callState.remoteUserId, event.candidate.candidate, event.candidate.sdpMid, event.candidate.sdpMLineIndex).catch(() => {});
+  };
+  try { await request(`/calls/${callState.activeCall.id}/answer`, { method: "POST" }); } catch (error) { notify(document.querySelector("#call-message"), error.message); }
+  showCallModal("Đã kết nối", { showEnd: true });
+  if (callState.role === "callee") {
+    try { await callState.connection.invoke("AnswerCall", callState.activeCall.id, callState.remoteUserId); } catch { /* ignore */ }
+    const offer = await callState.peerConnection.createOffer();
+    await callState.peerConnection.setLocalDescription(offer);
+    await callState.connection.invoke("SendOffer", callState.activeCall.id, callState.remoteUserId, offer.sdp);
+  }
+  callState.incoming = false;
+  await loadCallHistory();
+}
+
+async function declineCall() {
+  if (!callState.activeCall) return;
+  try { await request(`/calls/${callState.activeCall.id}/decline`, { method: "POST" }); await callState.connection.invoke("DeclineCall", callState.activeCall.id, callState.remoteUserId); } catch { /* ignore */ }
+  cleanupCall();
+}
+
+async function endCall() {
+  if (!callState.activeCall) return;
+  try { await request(`/calls/${callState.activeCall.id}/end`, { method: "POST" }); } catch { /* ignore */ }
+  cleanupCall();
+  await loadCallHistory();
+}
+
+function cleanupCall() {
+  if (callState.peerConnection) { callState.peerConnection.close(); callState.peerConnection = null; }
+  if (callState.localStream) { callState.localStream.getTracks().forEach((track) => track.stop()); callState.localStream = null; }
+  callState.activeCall = null;
+  callState.remoteUserId = null;
+  callState.pendingOffer = null;
+  callState.role = null;
+  hideCallModal();
+}
+
+function onCallAnswered() { document.querySelector("#call-status").textContent = "Đã trả lời..."; if (callState.role === "caller" && callState.pendingOffer) callState.connection.invoke("SendOffer", callState.activeCall.id, callState.remoteUserId, callState.pendingOffer).catch(() => {}); }
+
+function onCallDeclined() { notify(document.querySelector("#call-message"), "Cuộc gọi bị từ chối."); cleanupCall(); }
+
+function onCallEnded() { cleanupCall(); loadCallHistory().catch(() => {}); }
+
+async function onReceiveOffer(payload) {
+  if (!callState.peerConnection) await answerCall();
+  await callState.peerConnection.setRemoteDescription(new RTCSessionDescription({ type: "offer", sdp: payload.sdp }));
+  const answer = await callState.peerConnection.createAnswer();
+  await callState.peerConnection.setLocalDescription(answer);
+  await callState.connection.invoke("SendAnswer", payload.callId, payload.fromUserId, answer.sdp);
+}
+
+async function onReceiveAnswer(payload) {
+  if (!callState.peerConnection) return;
+  await callState.peerConnection.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: payload.sdp }));
+}
+
+async function onReceiveIceCandidate(payload) {
+  if (!callState.peerConnection || !payload.candidate) return;
+  try { await callState.peerConnection.addIceCandidate(new RTCIceCandidate({ candidate: payload.candidate, sdpMid: payload.sdpMid, sdpMLineIndex: payload.sdpMLineIndex })); } catch { /* ignore */ }
+}
+
+async function loadCallPage() {
+  try {
+    const connections = await request("/connections?status=Accepted");
+    const friends = connections.filter((item) => item.status === "Accepted").map((item) => item.user);
+    document.querySelector("#call-friend-select").innerHTML = '<option value="">Chọn bạn bè</option>' + friends.map((friend) => `<option value="${friend.id}">${escapeHtml(friend.name)}</option>`).join("");
+  } catch { /* ignore */ }
+  await loadCallHistory();
+}
+
+async function loadCallHistory() {
+  const container = document.querySelector("#call-history");
+  try {
+    const history = await request("/rooms/calls/history");
+    container.innerHTML = history.length ? history.map((call) => {
+      const statusLabels = { Ringing: "Đổ chuông", Active: "Đang gọi", Completed: "Đã kết thúc", Declined: "Bị từ chối", Ended: "Đã kết thúc" };
+      const started = new Date(call.startedAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" });
+      return `<article class="community-event-card"><div><strong>${call.callType === "Video" ? "🎥 Video" : "📞 Thoại"} · ${escapeHtml(statusLabels[call.status] || call.status)}</strong><small>${call.callerUserId === appState.profile.id ? "Bạn đã gọi" : escapeHtml(call.callerName)} · ${escapeHtml(call.recipientName || call.roomName || "")} · ${started}</small></div></article>`;
+    }).join("") : '<p class="empty-message">Chưa có cuộc gọi nào.</p>';
+  } catch (error) { container.innerHTML = `<p class="empty-message">${escapeHtml(error.message)}</p>`; }
+}
+
+async function submitStartCall(event) {
+  event.preventDefault();
+  const values = new FormData(event.currentTarget);
+  const recipientId = values.get("recipientUserId");
+  if (!recipientId) { notify(document.querySelector("#call-message"), "Hãy chọn bạn bè để gọi."); return; }
+  await startCall({ callType: values.get("callType"), recipientUserId: recipientId });
+}
+
+function toggleMic() {
+  if (!callState.localStream) return;
+  callState.micEnabled = !callState.micEnabled;
+  callState.localStream.getAudioTracks().forEach((track) => { track.enabled = callState.micEnabled; });
+  document.querySelector("#call-toggle-mic").textContent = callState.micEnabled ? "Tắt mic" : "Bật mic";
+}
+
+function toggleCamera() {
+  if (!callState.localStream) return;
+  callState.cameraEnabled = !callState.cameraEnabled;
+  callState.localStream.getVideoTracks().forEach((track) => { track.enabled = callState.cameraEnabled; });
+  document.querySelector("#call-toggle-camera").textContent = callState.cameraEnabled ? "Tắt camera" : "Bật camera";
+}
+
 function logout() {
+  cleanupCall();
+  if (roomState.chatConnection) { roomState.chatConnection.stop().catch(() => {}); roomState.chatConnection = null; }
+  if (callState.connection) { callState.connection.stop().catch(() => {}); callState.connection = null; }
   stopPresenceHeartbeat();
   stopChatPolling();
   stopSocialPolling();
@@ -2184,8 +2251,7 @@ function logout() {
   localStorage.removeItem("kiss.profile");
   appState.token = null;
   appState.profile = null;
-  appState.isOwner = false;
-  document.querySelector("#events-nav").hidden = true;
+  setBodyMode(false);
   appView.hidden = true;
   authView.hidden = false;
   document.title = "Kiss | Đăng nhập";
@@ -2194,6 +2260,7 @@ function logout() {
 }
 
 async function startApp() {
+  setBodyMode(false);
   document.querySelector("#login-tab").addEventListener("click", () => setAuthMode("login"));
   document.querySelector("#register-tab").addEventListener("click", () => setAuthMode("register"));
   authForm.addEventListener("submit", submitAuth);
@@ -2222,19 +2289,6 @@ async function startApp() {
   document.querySelector("#photo-form").addEventListener("submit", uploadPhoto);
   document.querySelector("#photo-list").addEventListener("click", managePhoto);
   document.querySelector("#discover-results").addEventListener("click", swipe);
-<<<<<<< HEAD
-  document.querySelector("#discover-results").addEventListener("click", openProfileFromCard);
-  document.querySelector("#rooms-filter-form").addEventListener("submit", (event) => { event.preventDefault(); loadRooms(); });
-  document.querySelector("#rooms-results").addEventListener("click", (event) => { const button = event.target.closest("[data-room-join]"); if (button) joinRoom(button.dataset.roomJoin); });
-  document.querySelector("#create-room-button").addEventListener("click", () => document.querySelector("#create-room-dialog").showModal());
-  document.querySelector("#close-room-dialog").addEventListener("click", () => document.querySelector("#create-room-dialog").close());
-  document.querySelector("#create-room-form").addEventListener("submit", submitCreateRoom);
-  document.querySelector("#create-room-form [name=isPrivate]").addEventListener("change", toggleRoomInvite);
-  document.querySelector("#matches-results").addEventListener("click", openChatFromMatch);
-  document.querySelector("#matches-results").addEventListener("click", openProfileFromCard);
-  document.querySelector("#view-profile-content").addEventListener("click", handleViewedProfileAction);
-  document.querySelector("#view-profile-error").addEventListener("click", handleViewedProfileAction);
-=======
   document.querySelector("#chat-messages").addEventListener("click", manageChatMessage);
   document.querySelector("#discover-pagination").addEventListener("click", (event) => {
     const button = event.target.closest("[data-discover-step]");
@@ -2252,7 +2306,6 @@ async function startApp() {
   });
   document.querySelector("#matches-results").addEventListener("click", openChatFromMatch);
   document.querySelector("#passed-results").addEventListener("click", undoPass);
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
   document.querySelector("#chat-contact-list").addEventListener("click", (event) => {
     const contact = event.target.closest("[data-chat-user]");
     if (contact) selectChatContact(contact.dataset.chatUser);
@@ -2329,6 +2382,21 @@ async function startApp() {
     loadSocialMessages();
   });
   document.querySelector("#social-chat-form").addEventListener("submit", submitSocialMessage);
+  document.querySelector("#room-create-form").addEventListener("submit", submitCreateRoom);
+  document.querySelector("#room-list").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-open-room]");
+    if (button) selectRoom(button.dataset.openRoom);
+  });
+  document.querySelector("#room-chat-heading").addEventListener("click", manageRoomActions);
+  document.querySelector("#room-chat-form").addEventListener("submit", submitRoomMessage);
+  document.querySelector("#rooms-refresh").addEventListener("click", loadRooms);
+  document.querySelector("#call-start-form").addEventListener("submit", submitStartCall);
+  document.querySelector("#calls-refresh").addEventListener("click", loadCallHistory);
+  document.querySelector("#call-answer").addEventListener("click", answerCall);
+  document.querySelector("#call-decline").addEventListener("click", declineCall);
+  document.querySelector("#call-end").addEventListener("click", endCall);
+  document.querySelector("#call-toggle-mic").addEventListener("click", toggleMic);
+  document.querySelector("#call-toggle-camera").addEventListener("click", toggleCamera);
   document.querySelector("#social-chat-form textarea").addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
@@ -2336,48 +2404,10 @@ async function startApp() {
     }
   });
   document.querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => showPage(button.dataset.page)));
-<<<<<<< HEAD
-document.addEventListener("click", (event) => {
-  const action = event.target.closest("[data-empty-page]");
-  if (action) showPage(action.dataset.emptyPage);
-});
-  document.querySelector("#logout-button").addEventListener("click", logout);
-document.querySelectorAll("#discover-filters input[type=range]").forEach((input) => input.addEventListener("input", () => {
-  const form = document.querySelector("#discover-filters");
-  const min = Number(form.elements.minAge.value);
-  const max = Number(form.elements.maxAge.value);
-  if (min > max) {
-    if (input.name === "minAge") form.elements.maxAge.value = min;
-    else form.elements.minAge.value = max;
-  }
-  document.querySelector("#age-range-output").value = `${form.elements.minAge.value}–${form.elements.maxAge.value}`;
-  document.querySelector("#age-range-output").textContent = `${form.elements.minAge.value}–${form.elements.maxAge.value}`;
-}));
-document.querySelector("#account-menu-toggle").addEventListener("click", () => {
-  const toggle = document.querySelector("#account-menu-toggle");
-  const menu = document.querySelector("#account-menu");
-  const expanded = toggle.getAttribute("aria-expanded") === "true";
-  toggle.setAttribute("aria-expanded", String(!expanded));
-  menu.hidden = expanded;
-});
-document.querySelector("#account-profile-link").addEventListener("click", () => {
-  document.querySelector("#account-menu-toggle").setAttribute("aria-expanded", "false");
-  document.querySelector("#account-menu").hidden = true;
-  showPage("profile");
-});
-document.addEventListener("click", (event) => {
-  if (!event.target.closest(".app-account")) {
-    document.querySelector("#account-menu-toggle")?.setAttribute("aria-expanded", "false");
-    const menu = document.querySelector("#account-menu");
-    if (menu) menu.hidden = true;
-  }
-});
-=======
   document.querySelector("#logout-button").addEventListener("click", async () => {
     try { await request("/auth/logout", { method: "POST" }); } catch { /* Clear local credentials even if the network is unavailable. */ }
     logout();
   });
->>>>>>> ad6278e33dcb2b25f88d5effa2fee3acc8ed6106
   document.querySelector("#forgot-password-link").addEventListener("click", showForgotPassword);
   document.querySelector("#forgot-password-back").addEventListener("click", () => setAuthMode("login"));
   document.querySelector("#reset-password-back").addEventListener("click", () => setAuthMode("login"));

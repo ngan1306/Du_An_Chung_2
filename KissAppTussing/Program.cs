@@ -1,7 +1,6 @@
 ﻿using System.Text;
 using KissAppTussing.Data;
 using KissAppTussing.Endpoints;
-using KissAppTussing.Hubs;
 using KissAppTussing.Models;
 using KissAppTussing.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -28,7 +27,6 @@ if (string.IsNullOrWhiteSpace(jwtIssuer) || string.IsNullOrWhiteSpace(jwtAudienc
 builder.Services.AddOpenApi();
 builder.Services.AddValidation();
 builder.Services.AddProblemDetails();
-builder.Services.AddSignalR();
 builder.Services.AddDbContext<DatingDbContext>(options =>
 	options.UseSqlServer(builder.Configuration.GetConnectionString("DatingApp")));
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
@@ -49,23 +47,13 @@ builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<DateService>();
 builder.Services.AddScoped<SafetyService>();
 builder.Services.AddScoped<CommunityEventService>();
+builder.Services.AddScoped<RoomService>();
+builder.Services.AddScoped<CallService>();
 builder.Services.AddHostedService<DateReminderService>();
 builder.Services
 	.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 	.AddJwtBearer(options =>
 	{
-		options.Events = new JwtBearerEvents
-		{
-			OnMessageReceived = context =>
-			{
-				var accessToken = context.Request.Query["access_token"];
-				if (!string.IsNullOrEmpty(accessToken) && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
-				{
-					context.Token = accessToken;
-				}
-				return Task.CompletedTask;
-			}
-		};
 		options.TokenValidationParameters = new TokenValidationParameters
 		{
 			ValidateIssuer = true,
@@ -79,6 +67,15 @@ builder.Services
 		};
 		options.Events = new JwtBearerEvents
 		{
+			OnMessageReceived = context =>
+			{
+				var accessToken = context.Request.Query["access_token"];
+				if (!string.IsNullOrEmpty(accessToken) && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+				{
+					context.Token = accessToken;
+				}
+				return Task.CompletedTask;
+			},
 			OnTokenValidated = async context =>
 			{
 				var principal = context.Principal;
@@ -98,6 +95,7 @@ builder.Services
 			}
 		};
 	});
+builder.Services.AddSignalR();
 var configuredAdminUserIds = builder.Configuration.GetSection("Admin:UserIds").Get<Guid[]>() ?? [];
 builder.Services.AddAuthorization(options =>
 {
@@ -155,7 +153,8 @@ app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapHub<RoomHub>("/hubs/rooms");
+app.MapHub<KissAppTussing.Hubs.ChatHub>("/hubs/chat");
+app.MapHub<KissAppTussing.Hubs.CallHub>("/hubs/call");
 
 if (app.Environment.IsDevelopment())
 {
@@ -170,13 +169,14 @@ app.MapSwipeEndpoints();
 app.MapMatchEndpoints();
 app.MapJourneyEndpoints();
 app.MapChatEndpoints();
-app.MapRoomEndpoints();
 app.MapAdminEndpoints();
 app.MapSocialEndpoints();
 app.MapNotificationEndpoints();
 app.MapDateEndpoints();
 app.MapSafetyEndpoints();
 app.MapCommunityEventEndpoints();
+app.MapRoomEndpoints();
+app.MapCallEndpoints();
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
