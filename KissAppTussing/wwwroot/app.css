@@ -2797,47 +2797,6 @@ body.auth-mode .auth-footer { margin-top: var(--space-8); padding-top: 0; }
   }
 }
 
-/* Community rooms list and chat view. */
-#rooms-page .rooms-toolbar { display: grid; grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr) auto; align-items: end; gap: 14px; margin: 24px 0; }
-#rooms-page .rooms-toolbar .field { min-width: 0; }
-#rooms-page .rooms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 18px; }
-#rooms-page .room-card { min-width: 0; display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 16px; padding: 20px; border: 1px solid #f1dfe4; border-radius: 20px; background: #fff; box-shadow: 0 10px 30px rgb(46 28 43 / 6%); }
-#rooms-page .room-card-avatar { width: 64px; height: 64px; display: grid; place-items: center; overflow: hidden; border-radius: 18px; background: #fff0f3; font-size: 28px; }
-#rooms-page .room-card-avatar img { width: 100%; height: 100%; object-fit: cover; }
-#rooms-page .room-card-content { min-width: 0; }
-#rooms-page .room-card-title, #rooms-page .room-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-#rooms-page .room-card-title h2 { min-width: 0; margin: 0; overflow-wrap: anywhere; font-size: 18px; }
-#rooms-page .room-topic { margin: 6px 0; color: #ef5677; font-size: 12px; font-weight: 700; }
-#rooms-page .room-card-content > p:not(.room-topic) { color: #737184; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
-#rooms-page .room-card-footer { margin-top: 14px; color: #6b6878; font-size: 13px; }
-#rooms-page .room-card-footer .room-join-button { min-height: 40px; padding: 0 16px; }
-#room-detail { min-height: 55vh; display: grid; grid-template-rows: auto auto minmax(220px, 1fr) auto; gap: 14px; margin-top: 22px; padding: 18px; border: 1px solid #f1dfe4; border-radius: 20px; background: #fff; box-shadow: 0 10px 30px rgb(46 28 43 / 6%); }
-#room-detail[hidden] { display: none !important; }
-.room-detail-header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; }
-.room-detail-header h2, .room-detail-header p { margin: 0; overflow-wrap: anywhere; }
-.room-detail-header p { color: #777486; font-size: 13px; }
-.room-member-list { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid #f1e8eb; color: #777486; font-size: 12px; }
-.room-member-chip { padding: 5px 10px; border-radius: 999px; color: #5d5360; background: #fff1f4; }
-.room-messages { min-height: 220px; max-height: 52vh; display: flex; flex-direction: column; gap: 10px; overflow: auto; padding: 16px; border-radius: 14px; background: #fbf8f9; }
-.room-message { width: fit-content; max-width: min(78%, 620px); padding: 10px 13px; border: 1px solid #eee6e9; border-radius: 14px 14px 14px 4px; background: #fff; overflow-wrap: anywhere; }
-.room-message.is-mine { align-self: flex-end; border-color: #f7a4b4; border-radius: 14px 14px 4px 14px; background: #fff0f3; }
-.room-message strong { color: #df4d70; font-size: 11px; }
-.room-message p { margin: 3px 0 5px; white-space: pre-wrap; }
-.room-message time { color: #8b8792; font-size: 10px; }
-.room-detail .chat-composer { padding: 0; border: 0; }
-@media (max-width: 700px) {
-  #rooms-page .rooms-toolbar { grid-template-columns: minmax(0, 1fr); }
-  #rooms-page .room-card { grid-template-columns: 48px minmax(0, 1fr); gap: 12px; padding: 14px; }
-  #rooms-page .room-card-avatar { width: 48px; height: 48px; }
-  #room-detail { min-height: 60vh; padding: 12px; }
-  .room-detail-header { grid-template-columns: 1fr auto; }
-  .room-detail-header > div { grid-column: 1 / -1; grid-row: 1; }
-  .room-detail-header > button:first-child { grid-column: 1; grid-row: 2; }
-  .room-detail-header > button:last-child { grid-column: 2; grid-row: 2; }
-  .room-messages { max-height: 48vh; padding: 10px; }
-  .room-message { max-width: 90%; }
-}
-
 /* ===== Rooms & Calls ===== */
 .rooms-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; align-items: start; }
 .room-create-form { display: grid; gap: 10px; padding: 14px; border: 1px solid rgba(15, 118, 110, .25); border-radius: 16px; margin-bottom: 14px; }
@@ -2855,3 +2814,461 @@ body.auth-mode .auth-footer { margin-top: var(--space-8); padding-top: 0; }
 .call-controls #call-decline, .call-controls #call-end { background: #b91c1c; }
 .call-controls #call-answer { background: #15803d; }
 @media (max-width: 720px) { .rooms-layout { grid-template-columns: minmax(0, 1fr); } .call-local-video { margin-right: 0; } }
+
+/* Kiss design system: one shared shell and component language across all pages. */
+:root {
+  --kiss-coral: #ed647d;
+  --kiss-peach: #f09a72;
+  --kiss-lavender: #8173b7;
+  --kiss-teal: #328b80;
+  --kiss-ink: #292537;
+  --kiss-muted: #777384;
+  --kiss-page: #f7f6f9;
+  --kiss-surface: #fff;
+  --kiss-line: #eae7ed;
+  --kiss-gradient: linear-gradient(135deg, #ed647d, #f09a72);
+  --kiss-gradient-soft: linear-gradient(135deg, #fff2f3, #fff8f2);
+  --kiss-radius-card: 18px;
+  --kiss-radius-input: 12px;
+  --kiss-pill: 999px;
+  --kiss-shadow: 0 8px 26px rgb(44 35 57 / 6%);
+  --kiss-shadow-hover: 0 14px 34px rgb(44 35 57 / 11%);
+  --page: var(--kiss-page);
+  --surface: var(--kiss-surface);
+  --surface-muted: #f5f3f7;
+  --line: var(--kiss-line);
+  --ink: var(--kiss-ink);
+  --muted: var(--kiss-muted);
+  --green: var(--kiss-teal);
+  --green-soft: #28776e;
+  --red: var(--kiss-coral);
+  --shadow-card: var(--kiss-shadow);
+  color: var(--kiss-ink);
+  font-family: Inter, "Be Vietnam Pro", "Segoe UI", sans-serif;
+}
+
+html { background: var(--kiss-page); }
+body { background: var(--kiss-page); color: var(--kiss-ink); font-family: inherit; }
+button, input, select, textarea { font: inherit; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid rgb(237 100 125 / 28%); outline-offset: 2px; }
+
+#dating-app.dating-app,
+#dating-app:has(#discover-page:not([hidden])) {
+  display: grid !important;
+  grid-template-columns: 252px minmax(0, 1fr) !important;
+  align-content: start;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at 88% 0, rgb(237 100 125 / 5%), transparent 34rem), var(--kiss-page) !important;
+}
+#dating-app.dating-app .app-header,
+#dating-app:has(#discover-page:not([hidden])) .app-header {
+  position: fixed !important;
+  z-index: 25;
+  inset: 0 auto 0 0 !important;
+  width: 252px !important;
+  height: 100vh !important;
+  min-height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0;
+  padding: 24px 16px 16px !important;
+  border: 0 !important;
+  border-right: 1px solid var(--kiss-line) !important;
+  background: rgb(255 255 255 / 96%) !important;
+  box-shadow: 8px 0 28px rgb(44 35 57 / 3%) !important;
+  backdrop-filter: blur(16px);
+}
+#dating-app .app-brand { flex: none; align-self: flex-start; gap: 10px; padding: 0 4px; color: var(--kiss-ink) !important; font-size: 24px; font-weight: 800; letter-spacing: -.06em; }
+#dating-app .app-brand .brand-mark { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 15px !important; color: #fff; background: var(--kiss-gradient) !important; box-shadow: 0 7px 16px rgb(237 100 125 / 22%); }
+#dating-app .app-nav {
+  position: static !important;
+  flex: 1 1 auto;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 5px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  margin: 32px -4px 12px !important;
+  padding: 0 4px 8px !important;
+  background: transparent !important;
+  scrollbar-width: thin;
+  scrollbar-color: #e6e1e8 transparent;
+}
+#dating-app .app-nav,
+#dating-app:has(#discover-page:not([hidden])) .app-nav {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-auto-rows: minmax(44px, auto);
+  flex-wrap: nowrap !important;
+}
+#dating-app .app-nav-item {
+  position: relative;
+  flex: none !important;
+  min-width: 0 !important;
+  min-height: 44px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-start !important;
+  gap: 11px;
+  padding: 0 12px !important;
+  border: 0;
+  border-radius: 12px !important;
+  color: #666274 !important;
+  background: transparent;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  text-align: left;
+  transition: color .16s ease, background .16s ease, transform .16s ease;
+}
+#dating-app .app-nav-item,
+#dating-app:has(#discover-page:not([hidden])) .app-nav-item {
+  width: 100% !important;
+  min-width: 0 !important;
+  grid-column: 1;
+}
+#dating-app .app-nav-item:hover { color: var(--kiss-ink) !important; background: #f7f4f7 !important; transform: translateX(2px); }
+#dating-app .app-nav-item.is-active { color: #fff !important; background: var(--kiss-gradient) !important; box-shadow: 0 7px 16px rgb(237 100 125 / 19%); }
+#dating-app .app-nav-item span { min-width: 21px; height: 21px; display: inline-grid; place-items: center; margin-left: auto; border-radius: 999px; color: var(--kiss-coral) !important; background: #fff !important; font-size: 10px; }
+#dating-app .app-account {
+  position: static !important;
+  flex: none;
+  width: auto !important;
+  min-height: 70px !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between !important;
+  gap: 10px;
+  margin: 0 -2px;
+  padding: 14px 4px 2px !important;
+  border: 0 !important;
+  border-top: 1px solid var(--kiss-line) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+#dating-app #app-user-name { min-width: 0; overflow: hidden; color: var(--kiss-ink); font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+#dating-app .logout-button { min-height: 36px; padding: 0 12px; border: 1px solid #f0e8ec; border-radius: 999px; color: #766d79; background: #fff; font-size: 11px; font-weight: 700; }
+#dating-app .logout-button:hover { border-color: #f2ccd4; color: #cf536d; background: #fff6f7; }
+
+#dating-app .app-page,
+#dating-app:has(#discover-page:not([hidden])) .app-page,
+#dating-app .app-footer {
+  grid-column: 2;
+  width: min(calc(100% - 64px), 1240px) !important;
+  min-width: 0;
+  margin-right: auto;
+  margin-left: auto;
+}
+#dating-app .app-page,
+#dating-app:has(#discover-page:not([hidden])) .app-page { padding: 68px 0 38px !important; }
+#dating-app .app-footer { padding: 4px 0 28px; color: #9994a0; font-size: 11px; }
+#dating-app .page-heading { align-items: center !important; gap: 18px; margin-bottom: 26px !important; }
+#dating-app .page-heading h1 { margin: 0; color: var(--kiss-ink) !important; font-size: clamp(28px, 3vw, 36px) !important; font-weight: 800 !important; letter-spacing: -.045em; line-height: 1.16; }
+#dating-app .page-heading > p { max-width: 440px !important; margin: 0 !important; color: var(--kiss-muted) !important; font-size: 13px !important; line-height: 1.65; text-align: right !important; }
+#dating-app .eyebrow { margin: 0 0 8px; color: var(--kiss-teal) !important; font-size: 10px; font-weight: 800; letter-spacing: .14em; }
+#dating-app .eyebrow::before { content: ""; display: inline-block; width: 7px; height: 7px; margin: 0 8px 1px 0; border-radius: 50%; background: var(--kiss-coral); }
+
+#dating-app .field { min-width: 0; gap: 7px; color: #4d4959; font-size: 12px; font-weight: 700; }
+#dating-app .field input,
+#dating-app .field select,
+#dating-app .field textarea,
+#dating-app .chat-form textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 13px;
+  border: 1px solid #e5e0e8;
+  border-radius: 12px;
+  color: var(--kiss-ink);
+  background: #fff;
+  font-size: 13px;
+  transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+#dating-app .field textarea { min-height: 96px; resize: vertical; }
+#dating-app .field input::placeholder, #dating-app .field textarea::placeholder { color: #aaa6b1; }
+#dating-app .field input:focus, #dating-app .field select:focus, #dating-app .field textarea:focus, #dating-app .chat-form textarea:focus { border-color: #e99aaa; outline: 0; box-shadow: 0 0 0 4px rgb(237 100 125 / 10%); }
+#dating-app .submit-button,
+#dating-app .chat-send-button,
+body.auth-mode .submit-button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  color: #fff;
+  background: var(--kiss-gradient);
+  box-shadow: 0 7px 16px rgb(237 100 125 / 17%);
+  font-size: 12px;
+  font-weight: 800;
+  transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+}
+#dating-app .submit-button:hover, #dating-app .chat-send-button:hover, body.auth-mode .submit-button:hover { transform: translateY(-1px); box-shadow: 0 10px 20px rgb(237 100 125 / 22%); filter: saturate(1.04); }
+#dating-app .submit-button:disabled, #dating-app .chat-send-button:disabled, body.auth-mode .submit-button:disabled { cursor: wait; opacity: .64; transform: none; }
+#dating-app .quiet-button, #dating-app .social-action, #dating-app .journey-action-button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #e9e4eb;
+  border-radius: 11px;
+  color: #5b5666;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  transition: border-color .16s ease, color .16s ease, background .16s ease, transform .16s ease;
+}
+#dating-app .quiet-button:hover, #dating-app .social-action:hover, #dating-app .journey-action-button:hover { border-color: #edc5ce; color: #c9536b; background: #fff7f8; }
+#dating-app [hidden] { display: none !important; }
+
+#dating-app .filter-bar,
+#dating-app .profile-form,
+#dating-app .photo-manager,
+#dating-app .journey-composer,
+#dating-app .journey-card,
+#dating-app .social-user-card,
+#dating-app .chat-layout,
+#dating-app .chat-workspace,
+#dating-app .admin-stat,
+#dating-app .admin-users-panel,
+#dating-app .date-invitation-form,
+#dating-app .date-list-panel,
+#dating-app .community-event-form,
+#dating-app .community-events-panel,
+#dating-app .rooms-layout,
+#dating-app .call-start-form,
+#dating-app .journey-stories-panel {
+  border: 1px solid var(--kiss-line) !important;
+  border-radius: var(--kiss-radius-card) !important;
+  background: #fff !important;
+  box-shadow: var(--kiss-shadow) !important;
+}
+#dating-app .filter-bar { grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)) !important; gap: 13px !important; padding: 18px !important; }
+#dating-app .filter-bar .submit-button { align-self: end; }
+#dating-app .admin-stat, #dating-app .admin-users-panel, #dating-app .date-invitation-form, #dating-app .date-list-panel, #dating-app .community-event-form, #dating-app .community-events-panel { padding: 20px !important; }
+#dating-app .admin-stat strong { color: var(--kiss-teal); }
+#dating-app .admin-stat-grid { gap: 14px; }
+#dating-app .journey-feed-heading { gap: 12px; }
+#dating-app .journey-feed-heading h2, #dating-app .admin-users-panel h2, #dating-app .date-invitation-form h2, #dating-app .community-event-form h2, #dating-app .community-events-panel h2 { color: var(--kiss-ink); font-size: 17px; font-weight: 800; letter-spacing: -.025em; }
+#dating-app .journey-stories-panel { padding: 16px; }
+#dating-app .story-card, #dating-app .community-event-card, #dating-app .date-card, #dating-app .notification-card { border-color: var(--kiss-line); border-radius: 14px; background: #fff; box-shadow: 0 3px 12px rgb(44 35 57 / 4%); }
+#dating-app .story-card { background: var(--kiss-gradient-soft); }
+#dating-app .community-events-grid, #dating-app .date-planning-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+#dating-app .form-message { margin: 0; padding: 10px 12px; border: 1px solid #f1d5dc; border-radius: 11px; color: #a84259; background: #fff6f7; font-size: 12px; }
+#dating-app .form-message.is-success { border-color: #d1e9df; color: #267564; background: #f1faf6; }
+#dating-app .empty-message, #dating-app .chat-empty, #dating-app .chat-no-messages { padding: 20px; border: 1px dashed #e6dfe8; border-radius: 14px; color: #85808f; background: #fbfafc; text-align: center; }
+
+#dating-app .profile-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+#dating-app .person-card { overflow: hidden; border: 1px solid var(--kiss-line); border-radius: 20px; background: #fff; box-shadow: var(--kiss-shadow); transition: transform .18s ease, box-shadow .18s ease; }
+#dating-app .person-card:hover { transform: translateY(-3px); box-shadow: var(--kiss-shadow-hover); }
+#dating-app .person-photo { width: 100%; object-fit: cover; background: #f1edf3; }
+#dating-app .person-card-body { min-width: 0; }
+#dating-app .interest-chip { border: 1px solid #e9e3f1; border-radius: 999px; color: #716295; background: #f8f5fb; }
+#dating-app .person-card-actions { flex-wrap: wrap; }
+#dating-app .person-card-actions button[data-swipe="true"] { border: 0; color: #fff; background: var(--kiss-gradient); }
+#dating-app .person-card-actions button[data-swipe="false"] { border: 1px solid var(--kiss-line); color: #635e6e; background: #fff; }
+#dating-app:has(#discover-page:not([hidden])) #discover-filters {
+  display: grid !important;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  align-items: end;
+  gap: 12px !important;
+  padding: 20px !important;
+}
+#dating-app:has(#discover-page:not([hidden])) #discover-filters > .field:first-child { grid-column: span 2; }
+#dating-app:has(#discover-page:not([hidden])) #discover-filters .distance-filter {
+  grid-column: span 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+#dating-app:has(#discover-page:not([hidden])) #discover-filters .distance-filter .quiet-button { min-height: 44px; white-space: nowrap; }
+#dating-app:has(#discover-page:not([hidden])) #discover-filters > .submit-button { min-height: 44px; white-space: nowrap; }
+#dating-app:has(#discover-page:not([hidden])) #discover-results .person-card-actions button[data-super-like="true"] {
+  border: 1px solid #ddd4f1;
+  color: #fff;
+  background: var(--kiss-lavender);
+  box-shadow: 0 6px 16px rgb(129 115 183 / 22%);
+}
+#dating-app:has(#discover-page:not([hidden])) #discover-results .person-card-actions button[data-super-like="true"]::before {
+  background-color: #fff;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m12 2 2.8 6.4L22 9l-5.4 4.8 1.6 7.2-6.2-3.8-6.2 3.8 1.6-7.2L2 9l7.2-.6L12 2Z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m12 2 2.8 6.4L22 9l-5.4 4.8 1.6 7.2-6.2-3.8-6.2 3.8 1.6-7.2L2 9l7.2-.6L12 2Z'/%3E%3C/svg%3E");
+}
+
+#dating-app .chat-layout, #dating-app .chat-workspace { overflow: hidden; border-radius: 20px !important; }
+#dating-app .chat-contact-panel, #dating-app .conversation-sidebar { background: #fbfafc; }
+#dating-app .chat-contact, #dating-app .conversation-item { border-radius: 12px; }
+#dating-app .chat-contact:hover, #dating-app .chat-contact.is-active, #dating-app .conversation-item:hover, #dating-app .conversation-item.is-active { background: #fff0f2; }
+#dating-app .chat-thread, #dating-app .chat-panel { min-width: 0; background: #fff; }
+#dating-app .chat-messages { background: #fbfafc; }
+#dating-app .chat-message-bubble, #dating-app .message-bubble { border-radius: 16px 16px 16px 5px; background: #f0eef3; color: var(--kiss-ink); overflow-wrap: anywhere; }
+#dating-app .chat-message-row.is-mine .chat-message-bubble, #dating-app .message-bubble.is-mine { border-radius: 16px 16px 5px 16px; color: #fff; background: var(--kiss-teal); }
+#dating-app .chat-composer, #dating-app .chat-form { border-color: var(--kiss-line); border-radius: 15px; background: #fff; }
+#dating-app .chat-compose-row textarea, #dating-app .chat-form textarea { border-color: #e8e3ea; background: #fff; }
+#dating-app .chat-tool-button, #dating-app .chat-file-button { border-radius: 10px; color: #776b9e; background: #f6f3fa; }
+
+#dating-app .rooms-layout { grid-template-columns: minmax(250px, 320px) minmax(0, 1fr); gap: 0; overflow: hidden; }
+#dating-app .call-start-form { border-radius: var(--kiss-radius-card); background: #fff; }
+#dating-app .call-modal { background: rgb(35 29 47 / 72%); backdrop-filter: blur(8px); }
+#dating-app .call-panel { border: 1px solid rgb(255 255 255 / 14%); background: #282437; box-shadow: 0 24px 70px rgb(13 10 20 / 28%); }
+#dating-app .call-controls button { border-radius: 12px; background: var(--kiss-teal); }
+#dating-app .call-controls #call-decline, #dating-app .call-controls #call-end { background: #d94f65; }
+#dating-app .call-controls #call-answer { background: #328b72; }
+
+#dating-app .admin-users { overflow-x: auto; }
+#dating-app .admin-user-row, #dating-app .admin-report-card { border-color: var(--kiss-line); border-radius: 12px; }
+#dating-app .admin-report-card.is-pending { border-left-color: var(--kiss-peach); }
+#dating-app .admin-analytics { border-color: var(--kiss-line); }
+#dating-app .analytics-user { background: var(--kiss-coral); }
+#dating-app .analytics-swipe { background: #eac1ca; }
+#dating-app .analytics-match { background: var(--kiss-teal); }
+
+body.auth-mode .auth-layout { background: var(--kiss-page); }
+body.auth-mode .auth-panel { border-left: 1px solid var(--kiss-line); }
+body.auth-mode .mobile-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  margin-bottom: 22px;
+  color: var(--kiss-ink);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -.06em;
+}
+body.auth-mode .mobile-brand .brand-mark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  color: #fff;
+  background: var(--kiss-gradient);
+  box-shadow: 0 7px 16px rgb(237 100 125 / 22%);
+}
+body.auth-mode .auth-tabs { gap: 5px; padding: 5px; border: 1px solid var(--kiss-line); border-radius: 13px; background: #f7f5f8; }
+body.auth-mode .auth-tab { border-radius: 9px; color: var(--kiss-muted); font-size: 12px; font-weight: 700; }
+body.auth-mode .auth-tab.is-active { color: var(--kiss-coral); background: #fff; box-shadow: 0 2px 8px rgb(44 35 57 / 8%); }
+body.auth-mode .auth-heading h1 { color: var(--kiss-ink); letter-spacing: -.05em; }
+body.auth-mode .auth-subtitle { color: var(--kiss-muted); line-height: 1.65; }
+body.auth-mode .field input, body.auth-mode .field select { border-color: var(--kiss-line); border-radius: 12px; }
+body.auth-mode .field input:focus, body.auth-mode .field select:focus { border-color: #e99aaa; box-shadow: 0 0 0 4px rgb(237 100 125 / 10%); }
+body.auth-mode .submit-button { background: var(--kiss-gradient); }
+
+@media (max-width: 1100px) and (min-width: 761px) {
+  #dating-app.dating-app, #dating-app:has(#discover-page:not([hidden])) { grid-template-columns: 224px minmax(0, 1fr) !important; }
+  #dating-app.dating-app .app-header, #dating-app:has(#discover-page:not([hidden])) .app-header { width: 224px !important; }
+  #dating-app .app-page, #dating-app .app-footer { width: min(calc(100% - 40px), 1000px) !important; }
+  #dating-app .profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #dating-app:has(#discover-page:not([hidden])) #discover-filters { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  #dating-app:has(#discover-page:not([hidden])) #discover-filters > .field:first-child,
+  #dating-app:has(#discover-page:not([hidden])) #discover-filters .distance-filter { grid-column: span 2; }
+}
+
+@media (max-width: 760px) {
+  body.auth-mode .auth-panel { border-left: 0; }
+  body.auth-mode .mobile-brand { margin-bottom: 17px; }
+  body.auth-mode .auth-tabs { margin-top: 22px; }
+  #dating-app.dating-app, #dating-app:has(#discover-page:not([hidden])) { display: block !important; min-height: 100svh; padding: 0 0 calc(78px + env(safe-area-inset-bottom)); }
+  #dating-app.dating-app .app-header, #dating-app:has(#discover-page:not([hidden])) .app-header {
+    position: fixed !important;
+    z-index: 35;
+    inset: 0 0 auto !important;
+    width: 100% !important;
+    height: 64px !important;
+    min-height: 64px !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between;
+    padding: 0 16px !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--kiss-line) !important;
+    border-radius: 0 !important;
+    background: rgb(255 255 255 / 94%) !important;
+    box-shadow: 0 5px 18px rgb(44 35 57 / 5%) !important;
+  }
+  #dating-app .app-brand { font-size: 21px; }
+  #dating-app .app-brand .brand-mark { width: 36px; height: 36px; border-radius: 13px !important; }
+  #dating-app .app-nav {
+    position: fixed !important;
+    z-index: 40;
+    inset: auto 0 0 !important;
+    width: 100% !important;
+    height: calc(68px + env(safe-area-inset-bottom)) !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 5px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    margin: 0 !important;
+    padding: 6px max(8px, env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right)) !important;
+    border-top: 1px solid var(--kiss-line) !important;
+    background: rgb(255 255 255 / 96%) !important;
+    box-shadow: 0 -8px 24px rgb(44 35 57 / 6%);
+    backdrop-filter: blur(16px);
+  }
+  #dating-app .app-nav,
+  #dating-app:has(#discover-page:not([hidden])) .app-nav {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    grid-template-columns: none !important;
+  }
+  #dating-app .app-nav-item,
+  #dating-app:has(#discover-page:not([hidden])) .app-nav-item { width: auto !important; grid-column: auto; }
+  #dating-app .app-nav-item { min-width: 88px !important; min-height: 48px !important; flex: 0 0 auto !important; justify-content: center !important; padding: 0 10px !important; border-radius: 13px !important; font-size: 11px !important; text-align: center !important; }
+  #dating-app .app-nav-item:hover { transform: none; }
+  #dating-app .app-nav-item span { min-width: 18px; height: 18px; margin-left: 0; font-size: 9px; }
+  #dating-app .app-account { min-height: 0 !important; width: auto !important; gap: 8px; margin: 0 !important; padding: 0 !important; border: 0 !important; }
+  #dating-app #app-user-name { max-width: 118px; font-size: 11px; }
+  #dating-app .logout-button { min-height: 34px; padding: 0 10px; font-size: 10px; }
+  #dating-app .app-page, #dating-app:has(#discover-page:not([hidden])) .app-page { width: calc(100% - 28px) !important; padding: 92px 0 28px !important; }
+  #dating-app .app-footer { width: calc(100% - 28px) !important; padding-bottom: 18px; }
+  #dating-app .page-heading { align-items: flex-start !important; flex-direction: column; gap: 8px; margin-bottom: 18px !important; }
+  #dating-app .page-heading h1 { font-size: clamp(26px, 7vw, 32px) !important; }
+  #dating-app .page-heading > p { max-width: 100% !important; text-align: left !important; }
+  #dating-app .filter-bar, #dating-app:has(#discover-page:not([hidden])) #discover-filters { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; padding: 13px !important; border-radius: 16px !important; }
+  #dating-app .filter-bar > .field:first-child, #dating-app .filter-bar .distance-filter, #dating-app .filter-bar .submit-button { grid-column: 1 / -1; }
+  #dating-app:has(#discover-page:not([hidden])) #discover-filters .distance-filter { grid-template-columns: minmax(0, 1fr) auto; }
+  #dating-app .profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+  #dating-app .person-card { border-radius: 15px; }
+  #dating-app .person-card-body { padding: 12px; }
+  #dating-app .person-card-heading h2 { font-size: 16px; }
+  #dating-app .person-card-actions { gap: 6px; }
+  #dating-app .person-card-actions button { min-height: 38px; padding: 0 8px; font-size: 10px; }
+  #dating-app .profile-form, #dating-app .photo-manager, #dating-app .admin-users-panel, #dating-app .date-invitation-form, #dating-app .date-list-panel, #dating-app .community-event-form, #dating-app .community-events-panel { padding: 15px !important; border-radius: 16px !important; }
+  #dating-app .community-events-grid, #dating-app .date-planning-grid { grid-template-columns: minmax(0, 1fr); gap: 13px; }
+  #dating-app .chat-layout, #dating-app .chat-workspace { grid-template-columns: minmax(0, 1fr); border-radius: 16px !important; }
+  #dating-app .chat-contact-panel, #dating-app .conversation-sidebar { max-width: 100%; border-right: 0; border-bottom: 1px solid var(--kiss-line); }
+  #dating-app .chat-messages { padding: 14px 10px; }
+  #dating-app .rooms-layout { grid-template-columns: minmax(0, 1fr); border-radius: 16px !important; }
+  #dating-app .call-start-form { grid-template-columns: minmax(0, 1fr); }
+  #dating-app .admin-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  #dating-app .admin-stat { padding: 14px !important; }
+  #dating-app .admin-stat strong { font-size: 25px; }
+  #dating-app .admin-report-card { flex-direction: column; }
+  #dating-app .admin-actions, #dating-app .notification-actions { flex-wrap: wrap; }
+}
+
+@media (max-width: 420px) {
+  #dating-app .profile-grid { grid-template-columns: minmax(0, 1fr); }
+  #dating-app .person-card { display: grid; grid-template-columns: 40% minmax(0, 1fr); }
+  #dating-app .person-photo { height: 100%; min-height: 210px; object-fit: cover; }
+  #dating-app .person-card-overlay, #dating-app .person-card-body { min-width: 0; }
+  #dating-app .person-card-overlay { padding: 14px 12px 0; }
+  #dating-app .person-card-body { padding: 8px 12px 12px; }
+  #dating-app .app-nav-item { min-width: 80px !important; }
+  #dating-app .filter-bar { grid-template-columns: minmax(0, 1fr) !important; }
+  #dating-app:has(#discover-page:not([hidden])) #discover-filters { grid-template-columns: minmax(0, 1fr) !important; }
+  #dating-app:has(#discover-page:not([hidden])) #discover-filters > .field:first-child,
+  #dating-app:has(#discover-page:not([hidden])) #discover-filters .distance-filter { grid-column: 1; }
+  #dating-app:has(#discover-page:not([hidden])) #discover-filters .distance-filter { grid-template-columns: minmax(0, 1fr); }
+  #dating-app .filter-bar > .field, #dating-app .filter-bar > .field:first-child, #dating-app .filter-bar .distance-filter, #dating-app .filter-bar .submit-button { grid-column: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
